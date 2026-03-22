@@ -21,8 +21,12 @@ pub mod speaker;
 /// VESA Display Transfer Characteristic Data Block types (standard tag `0x05`).
 pub mod vesa_transfer;
 
+/// HDMI Forum Sink Capability Data Block types (extended tags `0x78`, `0x79`).
+pub mod hdmi_forum;
+
 pub use audio::{AudioFormat, AudioFormatInfo, AudioSampleRates, ShortAudioDescriptor};
 pub use colorimetry::{ColorimetryBlock, ColorimetryFlags};
+pub use hdmi_forum::{HdmiDscMaxSlices, HdmiForumDsc, HdmiForumFrl, HdmiForumSinkCap};
 pub use hdmi_vsdb::{HdmiVsdb, HdmiVsdbFlags};
 pub use hdr::{HdrDynamicMetadataDescriptor, HdrEotf, HdrStaticMetadata};
 pub use speaker::{
