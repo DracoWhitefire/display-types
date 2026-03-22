@@ -1,3 +1,16 @@
+//! Shared display capability types for display connection negotiation.
+//!
+//! Provides the [`DisplayCapabilities`] struct and all supporting types produced by
+//! display data parsers (e.g. EDID, DisplayID) and consumed by negotiation engines.
+//!
+//! # Feature flags
+//!
+//! - **`std`** *(default)* — enables `std`-dependent types; implies `alloc`.
+//! - **`alloc`** — enables heap-allocated types (`Vec`, `Arc`, `String`) without full `std`.
+//! - **`serde`** — derives `Serialize`/`Deserialize` for all public types.
+//!
+//! With neither `std` nor `alloc` the crate compiles in bare `no_std` mode, exposing
+//! only the scalar types (enums and copy structs).
 #![no_std]
 #![forbid(unsafe_code)]
 
