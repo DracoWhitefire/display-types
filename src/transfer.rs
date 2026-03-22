@@ -45,7 +45,7 @@ pub enum TransferCurve {
 ///
 /// Encodes the display's native luminance transfer function as a sequence of sample
 /// points at evenly-spaced input levels from 0 (black) to 1 (white). Stored in
-/// [`DisplayCapabilities::transfer_characteristic`].
+/// [`crate::DisplayCapabilities::transfer_characteristic`].
 #[non_exhaustive]
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
