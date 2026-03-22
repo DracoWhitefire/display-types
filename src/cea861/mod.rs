@@ -18,6 +18,9 @@ pub mod hdr;
 /// Speaker Allocation, Room Configuration, and Speaker Location types.
 pub mod speaker;
 
+/// VESA Display Transfer Characteristic Data Block types (standard tag `0x05`).
+pub mod vesa_transfer;
+
 pub use audio::{AudioFormat, AudioFormatInfo, AudioSampleRates, ShortAudioDescriptor};
 pub use colorimetry::{ColorimetryBlock, ColorimetryFlags};
 pub use hdmi_vsdb::{HdmiVsdb, HdmiVsdbFlags};
@@ -26,4 +29,7 @@ pub use speaker::{
     RoomConfigurationBlock, SpeakerAllocation, SpeakerAllocationFlags, SpeakerAllocationFlags2,
     SpeakerAllocationFlags3, SpeakerLocationEntry,
 };
+pub use vesa_transfer::DtcPointEncoding;
+#[cfg(any(feature = "alloc", feature = "std"))]
+pub use vesa_transfer::VesaTransferCharacteristic;
 pub use video_capability::{VideoCapability, VideoCapabilityFlags};
