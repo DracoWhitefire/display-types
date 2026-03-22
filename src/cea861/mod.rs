@@ -33,7 +33,13 @@ pub mod misc;
 /// VESA Display Device Data Block types (extended tag `0x02`).
 pub mod vesa_dddb;
 
+/// Top-level CEA-861 capability types: `Cea861Flags`, `HdmiAudioBlock`, `Cea861Capabilities`.
+pub mod capabilities;
+
 pub use audio::{AudioFormat, AudioFormatInfo, AudioSampleRates, ShortAudioDescriptor};
+pub use capabilities::Cea861Flags;
+#[cfg(any(feature = "alloc", feature = "std"))]
+pub use capabilities::{Cea861Capabilities, HdmiAudioBlock};
 pub use colorimetry::{ColorimetryBlock, ColorimetryFlags};
 pub use hdmi_forum::{HdmiDscMaxSlices, HdmiForumDsc, HdmiForumFrl, HdmiForumSinkCap};
 pub use hdmi_vsdb::{HdmiVsdb, HdmiVsdbFlags};
