@@ -39,6 +39,32 @@ pub struct HdrStaticMetadata {
     pub min_luminance: Option<f32>,
 }
 
+/// One entry from an HDR Dynamic Metadata Data Block (extended tag `0x07`).
+///
+/// Each descriptor identifies the HDR dynamic metadata technology supported
+/// (e.g. HDR10+ / SMPTE ST 2094, or Dolby Vision).
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HdrDynamicMetadataDescriptor {
+    /// Application type identifier (bits 5–0 of the descriptor byte).
+    ///
+    /// `1` = SMPTE ST 2094 (HDR10+); `2` = Dolby Vision.
+    pub application_type: u8,
+    /// Application metadata version (bits 7–6 of the descriptor byte).
+    pub application_version: u8,
+}
+
+impl HdrDynamicMetadataDescriptor {
+    /// Constructs an `HdrDynamicMetadataDescriptor`.
+    pub fn new(application_type: u8, application_version: u8) -> Self {
+        Self {
+            application_type,
+            application_version,
+        }
+    }
+}
+
 impl HdrStaticMetadata {
     /// Constructs an `HdrStaticMetadata`.
     #[allow(clippy::too_many_arguments)]
