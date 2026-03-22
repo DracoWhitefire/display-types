@@ -12,7 +12,11 @@ pub mod video_capability;
 /// Colorimetry Data Block types (extended tag `0x05`).
 pub mod colorimetry;
 
+/// HDR Static Metadata Data Block types (extended tag `0x06`).
+pub mod hdr;
+
 pub use audio::{AudioFormat, AudioFormatInfo, AudioSampleRates, ShortAudioDescriptor};
 pub use colorimetry::{ColorimetryBlock, ColorimetryFlags};
 pub use hdmi_vsdb::{HdmiVsdb, HdmiVsdbFlags};
+pub use hdr::{HdrEotf, HdrStaticMetadata};
 pub use video_capability::{VideoCapability, VideoCapabilityFlags};
