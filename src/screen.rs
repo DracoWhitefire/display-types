@@ -30,22 +30,6 @@ pub enum ScreenSize {
 }
 
 impl ScreenSize {
-    /// Decodes bytes `0x15` and `0x16` of the EDID base block.
-    ///
-    /// Returns `None` when both bytes are zero (size/ratio undefined).
-    pub(crate) fn from_edid_bytes(byte15: u8, byte16: u8) -> Option<Self> {
-        match (byte15, byte16) {
-            (0, 0) => None,
-            (w, h) if w != 0 && h != 0 => Some(Self::Physical {
-                width_cm: w,
-                height_cm: h,
-            }),
-            (v, 0) => Some(Self::Landscape(v)),
-            (0, v) => Some(Self::Portrait(v)),
-            _ => unreachable!(),
-        }
-    }
-
     /// Returns the landscape aspect ratio (width ÷ height) for a `Landscape` variant.
     ///
     /// Formula: `(raw + 99) / 100`. Range: 1.00 → 3.54.

@@ -38,32 +38,6 @@ pub struct Chromaticity {
     pub white: ChromaticityPoint,
 }
 
-impl Chromaticity {
-    pub(crate) fn from_edid_bytes(base: &[u8; 128]) -> Self {
-        let lsb0 = base[0x19];
-        let lsb1 = base[0x1A];
-
-        Self {
-            red: ChromaticityPoint {
-                x_raw: ((base[0x1B] as u16) << 2) | ((lsb0 >> 6) & 0x03) as u16,
-                y_raw: ((base[0x1C] as u16) << 2) | ((lsb0 >> 4) & 0x03) as u16,
-            },
-            green: ChromaticityPoint {
-                x_raw: ((base[0x1D] as u16) << 2) | ((lsb0 >> 2) & 0x03) as u16,
-                y_raw: ((base[0x1E] as u16) << 2) | (lsb0 & 0x03) as u16,
-            },
-            blue: ChromaticityPoint {
-                x_raw: ((base[0x1F] as u16) << 2) | ((lsb1 >> 6) & 0x03) as u16,
-                y_raw: ((base[0x20] as u16) << 2) | ((lsb1 >> 4) & 0x03) as u16,
-            },
-            white: ChromaticityPoint {
-                x_raw: ((base[0x21] as u16) << 2) | ((lsb1 >> 2) & 0x03) as u16,
-                y_raw: ((base[0x22] as u16) << 2) | (lsb1 & 0x03) as u16,
-            },
-        }
-    }
-}
-
 /// An additional white point entry from a `0xFB` descriptor.
 ///
 /// Displays that support multiple white points (e.g. for HDR or wide-gamut modes)
@@ -127,18 +101,6 @@ pub enum DigitalColorEncoding {
     Rgb444YCbCr444YCbCr422,
 }
 
-impl DigitalColorEncoding {
-    /// Decodes bits 4–3 of EDID byte `0x18` for a digital display.
-    pub(crate) fn from_edid_bits(bits: u8) -> Self {
-        match (bits >> 3) & 0x03 {
-            0b00 => Self::Rgb444,
-            0b01 => Self::Rgb444YCbCr444,
-            0b10 => Self::Rgb444YCbCr422,
-            _ => Self::Rgb444YCbCr444YCbCr422,
-        }
-    }
-}
-
 /// Display color type for an analog display, decoded from EDID base block byte `0x18` bits 4–3.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -150,20 +112,6 @@ pub enum AnalogColorType {
     Rgb,
     /// Non-RGB multicolor display.
     NonRgb,
-}
-
-impl AnalogColorType {
-    /// Decodes bits 4–3 of EDID byte `0x18` for an analog display.
-    ///
-    /// Returns `None` for the undefined value (`0b11`).
-    pub(crate) fn from_edid_bits(bits: u8) -> Option<Self> {
-        match (bits >> 3) & 0x03 {
-            0b00 => Some(Self::Monochrome),
-            0b01 => Some(Self::Rgb),
-            0b10 => Some(Self::NonRgb),
-            _ => None,
-        }
-    }
 }
 
 /// Color bit depth per primary color channel, decoded from EDID base block byte `0x14` bits 6–4.
@@ -189,21 +137,6 @@ pub enum ColorBitDepth {
 }
 
 impl ColorBitDepth {
-    /// Decodes bits 6–4 of EDID byte `0x14` into a `ColorBitDepth`.
-    ///
-    /// Returns `None` for the undefined (0b000) and reserved (0b111) values.
-    pub(crate) fn from_edid_bits(bits: u8) -> Option<Self> {
-        match bits & 0x07 {
-            0b001 => Some(Self::Depth6),
-            0b010 => Some(Self::Depth8),
-            0b011 => Some(Self::Depth10),
-            0b100 => Some(Self::Depth12),
-            0b101 => Some(Self::Depth14),
-            0b110 => Some(Self::Depth16),
-            _ => None, // 0b000 = undefined, 0b111 = reserved
-        }
-    }
-
     /// Returns the number of bits per primary color channel.
     pub fn bits_per_primary(&self) -> u8 {
         match self {
