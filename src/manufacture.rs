@@ -23,21 +23,6 @@ pub enum ManufactureDate {
     ModelYear(u16),
 }
 
-impl ManufactureDate {
-    /// Decodes bytes 16 and 17 of the EDID base block.
-    pub(crate) fn from_edid_bytes(week_byte: u8, year_byte: u8) -> Self {
-        let year = year_byte as u16 + 1990;
-        match week_byte {
-            0xFF => Self::ModelYear(year),
-            0x00 => Self::Manufactured { week: None, year },
-            w => Self::Manufactured {
-                week: Some(w),
-                year,
-            },
-        }
-    }
-}
-
 /// A three-character PNP manufacturer identifier, decoded from EDID base block bytes `0x08`–`0x09`.
 ///
 /// Each character is an ASCII uppercase letter (A–Z). Valid IDs are registered with the IANA
