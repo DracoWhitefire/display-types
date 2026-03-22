@@ -1,5 +1,6 @@
 # display-types
 
+[![CI](https://github.com/DracoWhitefire/display-types/actions/workflows/ci.yml/badge.svg)](https://github.com/DracoWhitefire/display-types/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/display-types.svg)](https://crates.io/crates/display-types)
 [![docs.rs](https://docs.rs/display-types/badge.svg)](https://docs.rs/display-types)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
