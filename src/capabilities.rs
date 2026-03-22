@@ -1,3 +1,24 @@
+/// A reference-counted, type-erased warning value.
+///
+/// Any type that implements [`core::error::Error`] + [`Send`] + [`Sync`] + `'static` can be
+/// wrapped in a `ParseWarning`. The built-in library variants use `EdidWarning`, but
+/// custom handlers may push their own error types without wrapping them in `EdidWarning`.
+///
+/// Using [`Arc`][crate::prelude::Arc] (rather than `Box`) means `ParseWarning` is
+/// [`Clone`], which lets warnings be copied from a parsed representation into
+/// [`DisplayCapabilities`] without consuming the parsed result.
+///
+/// To inspect a specific variant, use the inherent `downcast_ref` method available on
+/// `dyn core::error::Error + Send + Sync + 'static` in `std` builds:
+///
+/// ```text
+/// for w in caps.iter_warnings() {
+///     if let Some(ew) = (**w).downcast_ref::<EdidWarning>() { ... }
+/// }
+/// ```
+#[cfg(any(feature = "alloc", feature = "std"))]
+pub type ParseWarning = crate::prelude::Arc<dyn core::error::Error + Send + Sync + 'static>;
+
 /// EDID specification version and revision, decoded from base block bytes 18–19.
 ///
 /// Most displays in use report version 1 with revision 3 or 4.
