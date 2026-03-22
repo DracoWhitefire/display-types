@@ -36,6 +36,9 @@ pub mod oui;
 /// VIC-to-VideoMode lookup table for CEA-861 Video Identification Codes.
 pub mod vic_table;
 
+/// VESA DMT ID-to-VideoMode lookup table.
+pub mod dmt_table;
+
 /// VESA Display Device Data Block types (extended tag `0x02`).
 pub mod vesa_dddb;
 
@@ -47,6 +50,7 @@ pub use capabilities::Cea861Flags;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use capabilities::{Cea861Capabilities, HdmiAudioBlock};
 pub use colorimetry::{ColorimetryBlock, ColorimetryFlags};
+pub use dmt_table::dmt_to_mode;
 pub use hdmi_forum::{HdmiDscMaxSlices, HdmiForumDsc, HdmiForumFrl, HdmiForumSinkCap};
 pub use hdmi_vsdb::{HdmiVsdb, HdmiVsdbFlags};
 pub use hdr::{HdrDynamicMetadataDescriptor, HdrEotf, HdrStaticMetadata};
