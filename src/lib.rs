@@ -71,6 +71,11 @@ pub mod transfer;
 /// CEA-861 / CTA-861 extension block types.
 pub mod cea861;
 
+/// DisplayID 1.x extension block types.
+pub mod displayid;
+#[cfg(any(feature = "alloc", feature = "std"))]
+pub use displayid::DisplayIdCapabilities;
+
 /// Consumer-facing capability types.
 pub mod capabilities;
 #[cfg(any(feature = "alloc", feature = "std"))]
