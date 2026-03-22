@@ -53,6 +53,10 @@ pub use panel::{
 
 /// Luminance transfer characteristic types.
 pub mod transfer;
+
+/// Consumer-facing capability types.
+pub mod capabilities;
+pub use capabilities::EdidVersion;
 pub use transfer::TransferPointEncoding;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use transfer::{DisplayIdTransferCharacteristic, TransferCurve};
