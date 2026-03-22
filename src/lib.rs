@@ -13,6 +13,7 @@
 //! only the scalar types (enums and copy structs).
 #![no_std]
 #![forbid(unsafe_code)]
+#![deny(missing_docs)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
