@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-03-22
+
+### Added
+
+**DisplayID 1.x types** (`display_types::displayid`)
+
+- `DisplayIdCapabilities` — version byte and product primary use case decoded from a
+  DisplayID section header (`alloc`/`std` only); retrieve via
+  `caps.get_extension_data::<DisplayIdCapabilities>(0x70)`
+- `displayid::tag` — data block tag constants (`PRODUCT_ID`, `DISPLAY_PARAMS`,
+  `COLOR_CHARACTERISTICS`, `TYPE_I_TIMING` … `TYPE_VI_TIMING`; all 20 implemented tags)
+- `displayid::product_type` — display product primary use case constants (`EXTENSION`,
+  `TEST`, `MONITOR`, `TV`, `REPEATER`, `DIRECT_DRIVE`) for comparing against
+  `DisplayIdCapabilities::product_type`
+
 ## [0.1.2] - 2026-03-22
 
 ### Added
