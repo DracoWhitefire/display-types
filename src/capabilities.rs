@@ -77,6 +77,12 @@ pub enum SyncDefinition {
 }
 
 /// A display video mode expressed as resolution, refresh rate, and scan type.
+///
+/// Use [`VideoMode::new`] to construct a mode with only identity fields (the common case
+/// for modes decoded from standard timing or SVD entries). Use
+/// [`VideoMode::with_detailed_timing`] to add the blanking-interval and signal fields
+/// available from a Detailed Timing Descriptor or equivalent.
+#[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct VideoMode {
@@ -100,10 +106,56 @@ pub struct VideoMode {
     pub h_border: u8,
     /// Vertical border height in lines on each side of the active area (0 when not from a DTD).
     pub v_border: u8,
-    /// Stereo viewing support (default `None` for non-DTD modes).
+    /// Stereo viewing support (default [`StereoMode::None`] for non-DTD modes).
     pub stereo: StereoMode,
     /// Sync signal definition (`None` for non-DTD modes).
     pub sync: Option<SyncDefinition>,
+}
+
+impl VideoMode {
+    /// Constructs a `VideoMode` with the given identity fields.
+    ///
+    /// All blanking-interval fields (`h_front_porch`, `h_sync_width`, `v_front_porch`,
+    /// `v_sync_width`, `h_border`, `v_border`) default to `0`, `stereo` defaults to
+    /// [`StereoMode::None`], and `sync` defaults to `None`. Use
+    /// [`with_detailed_timing`][Self::with_detailed_timing] to set those fields when
+    /// decoding from a Detailed Timing Descriptor.
+    pub fn new(width: u16, height: u16, refresh_rate: u8, interlaced: bool) -> Self {
+        Self {
+            width,
+            height,
+            refresh_rate,
+            interlaced,
+            ..Self::default()
+        }
+    }
+
+    /// Adds blanking-interval and signal fields decoded from a Detailed Timing Descriptor
+    /// or equivalent source, returning the updated mode.
+    ///
+    /// The 8-parameter count mirrors the DTD fields directly (EDID §3.10.3 / DisplayID §4.4).
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_detailed_timing(
+        mut self,
+        h_front_porch: u16,
+        h_sync_width: u16,
+        v_front_porch: u16,
+        v_sync_width: u16,
+        h_border: u8,
+        v_border: u8,
+        stereo: StereoMode,
+        sync: Option<SyncDefinition>,
+    ) -> Self {
+        self.h_front_porch = h_front_porch;
+        self.h_sync_width = h_sync_width;
+        self.v_front_porch = v_front_porch;
+        self.v_sync_width = v_sync_width;
+        self.h_border = h_border;
+        self.v_border = v_border;
+        self.stereo = stereo;
+        self.sync = sync;
+        self
+    }
 }
 
 /// EDID specification version and revision, decoded from base block bytes 18–19.
