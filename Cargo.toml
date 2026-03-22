@@ -1,0 +1,21 @@
+[package]
+name = "display-types"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Shared display capability types for display connection."
+readme = "README.md"
+license = "MPL-2.0"
+repository = "https://github.com/DracoWhitefire/display-types"
+keywords = ["edid", "display", "hdmi", "no-std"]
+categories = ["hardware-support", "embedded"]
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+serde = ["dep:serde", "bitflags/serde"]
+
+[dependencies]
+bitflags = "2.4"
+serde = { version = "1.0", optional = true, features = ["derive"] }
