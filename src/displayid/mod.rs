@@ -3,6 +3,9 @@
 /// DisplayID 1.x data block tag constants.
 pub mod tag;
 
+/// DisplayID 1.x display product primary use case constants.
+pub mod product_type;
+
 /// Rich capabilities extracted from a DisplayID 1.x extension section.
 ///
 /// Stored in `DisplayCapabilities` via `set_extension_data(0x70, ...)` by the dynamic
