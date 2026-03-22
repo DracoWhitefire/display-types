@@ -18,11 +18,11 @@ taking a dependency on a full parser.
 
 ## Feature flags
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `std` | yes | Enables `std`-dependent types; implies `alloc`. |
-| `alloc` | no | Enables heap-allocated types (`Vec`, `Arc`, `String`) without full `std`. |
-| `serde` | no | Derives `Serialize`/`Deserialize` for all public types. |
+| Flag    | Default | Description                                                               |
+|---------|---------|---------------------------------------------------------------------------|
+| `std`   | yes     | Enables `std`-dependent types; implies `alloc`.                           |
+| `alloc` | no      | Enables heap-allocated types (`Vec`, `Arc`, `String`) without full `std`. |
+| `serde` | no      | Derives `Serialize`/`Deserialize` for all public types.                   |
 
 With neither `std` nor `alloc` the crate compiles in bare `no_std` mode and
 exposes only the scalar types (enums and copy structs).
