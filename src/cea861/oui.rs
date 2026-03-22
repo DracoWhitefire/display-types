@@ -1,6 +1,6 @@
 //! Well-known IEEE OUI values in canonical (MSB-first) `u32` form.
 //!
-//! These match the `oui` field of [`super::VendorSpecificBlock`], which stores
+//! These match the `oui` field of `VendorSpecificBlock`, which stores
 //! OUI bytes as `(byte2 << 16) | (byte1 << 8) | byte0` (wire order is LSB-first).
 //!
 //! Use these constants to identify vendor-specific blocks by OUI:
