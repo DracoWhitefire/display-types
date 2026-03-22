@@ -1,5 +1,8 @@
 //! Types decoded from DisplayID 1.x extension blocks (EDID extension tag `0x70`).
 
+/// DisplayID 1.x data block tag constants.
+pub mod tag;
+
 /// Rich capabilities extracted from a DisplayID 1.x extension section.
 ///
 /// Stored in `DisplayCapabilities` via `set_extension_data(0x70, ...)` by the dynamic
