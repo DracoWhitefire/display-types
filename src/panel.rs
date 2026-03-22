@@ -354,6 +354,27 @@ pub struct DisplayIdInterface {
     pub content_protection: InterfaceContentProtection,
 }
 
+impl DisplayIdInterface {
+    /// Constructs a [`DisplayIdInterface`] from its decoded fields.
+    pub fn new(
+        interface_type: DisplayInterfaceType,
+        spread_spectrum: bool,
+        num_lanes: u8,
+        min_pixel_clock_10khz: u32,
+        max_pixel_clock_10khz: u32,
+        content_protection: InterfaceContentProtection,
+    ) -> Self {
+        Self {
+            interface_type,
+            spread_spectrum,
+            num_lanes,
+            min_pixel_clock_10khz,
+            max_pixel_clock_10khz,
+            content_protection,
+        }
+    }
+}
+
 /// Behavior when one or more tiles are missing from a tiled display, decoded from Tiled
 /// Display Topology Data Block (0x12) byte 0 bits 5:4.
 #[non_exhaustive]
@@ -400,6 +421,18 @@ pub struct TileBezelInfo {
     pub left_px: u8,
 }
 
+impl TileBezelInfo {
+    /// Constructs a [`TileBezelInfo`] from its decoded fields.
+    pub fn new(top_px: u8, bottom_px: u8, right_px: u8, left_px: u8) -> Self {
+        Self {
+            top_px,
+            bottom_px,
+            right_px,
+            left_px,
+        }
+    }
+}
+
 /// Tiled display topology, decoded from the Tiled Display Topology Data Block
 /// (DisplayID 1.x `0x12`).
 ///
@@ -430,6 +463,34 @@ pub struct DisplayIdTiledTopology {
     pub tile_height_px: u16,
     /// Per-edge bezel sizes, present when the block's `has_bezel_info` flag is set.
     pub bezel: Option<TileBezelInfo>,
+}
+
+impl DisplayIdTiledTopology {
+    /// Constructs a [`DisplayIdTiledTopology`] from its decoded fields.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        single_enclosure: bool,
+        topology_behavior: TileTopologyBehavior,
+        h_tile_count: u8,
+        v_tile_count: u8,
+        h_tile_location: u8,
+        v_tile_location: u8,
+        tile_width_px: u16,
+        tile_height_px: u16,
+        bezel: Option<TileBezelInfo>,
+    ) -> Self {
+        Self {
+            single_enclosure,
+            topology_behavior,
+            h_tile_count,
+            v_tile_count,
+            h_tile_location,
+            v_tile_location,
+            tile_width_px,
+            tile_height_px,
+            bezel,
+        }
+    }
 }
 
 /// Stereo content format, decoded from Stereo Display Interface Data Block (0x10) byte 0
@@ -528,6 +589,21 @@ pub struct DisplayIdStereoInterface {
     pub sync_interface: StereoSyncInterface,
 }
 
+impl DisplayIdStereoInterface {
+    /// Constructs a [`DisplayIdStereoInterface`] from its decoded fields.
+    pub fn new(
+        viewing_mode: StereoViewingMode,
+        sync_polarity_positive: bool,
+        sync_interface: StereoSyncInterface,
+    ) -> Self {
+        Self {
+            viewing_mode,
+            sync_polarity_positive,
+            sync_interface,
+        }
+    }
+}
+
 /// Panel interface power sequencing timing parameters, decoded from the Interface Power
 /// Sequencing Block (DisplayID 1.x `0x0D`).
 ///
@@ -558,4 +634,25 @@ pub struct PowerSequencing {
     pub t5_power_off_min: u8,
     /// T6: minimum backlight off time (2 ms units).
     pub t6_backlight_off_min: u8,
+}
+
+impl PowerSequencing {
+    /// Constructs a [`PowerSequencing`] from its decoded T1–T6 timing fields.
+    pub fn new(
+        t1_power_to_signal: u8,
+        t2_signal_to_backlight: u8,
+        t3_backlight_to_signal_off: u8,
+        t4_signal_to_power_off: u8,
+        t5_power_off_min: u8,
+        t6_backlight_off_min: u8,
+    ) -> Self {
+        Self {
+            t1_power_to_signal,
+            t2_signal_to_backlight,
+            t3_backlight_to_signal_off,
+            t4_signal_to_power_off,
+            t5_power_off_min,
+            t6_backlight_off_min,
+        }
+    }
 }
