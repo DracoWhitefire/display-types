@@ -56,7 +56,7 @@ pub mod transfer;
 
 /// Consumer-facing capability types.
 pub mod capabilities;
-pub use capabilities::EdidVersion;
+pub use capabilities::{EdidVersion, StereoMode, SyncDefinition, VideoMode};
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use capabilities::ParseWarning;
 pub use transfer::TransferPointEncoding;
