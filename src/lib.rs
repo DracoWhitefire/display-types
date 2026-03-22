@@ -68,6 +68,9 @@ pub use panel::{
 /// Luminance transfer characteristic types.
 pub mod transfer;
 
+/// CEA-861 / CTA-861 extension block types.
+pub mod cea861;
+
 /// Consumer-facing capability types.
 pub mod capabilities;
 #[cfg(any(feature = "alloc", feature = "std"))]
