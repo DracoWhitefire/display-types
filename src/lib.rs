@@ -57,6 +57,8 @@ pub mod transfer;
 /// Consumer-facing capability types.
 pub mod capabilities;
 pub use capabilities::EdidVersion;
+#[cfg(any(feature = "alloc", feature = "std"))]
+pub use capabilities::ParseWarning;
 pub use transfer::TransferPointEncoding;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use transfer::{DisplayIdTransferCharacteristic, TransferCurve};
