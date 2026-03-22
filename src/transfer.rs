@@ -56,3 +56,11 @@ pub struct DisplayIdTransferCharacteristic {
     /// Sample data — either a single luminance curve or separate R, G, B curves.
     pub curve: TransferCurve,
 }
+
+#[cfg(any(feature = "alloc", feature = "std"))]
+impl DisplayIdTransferCharacteristic {
+    /// Constructs a [`DisplayIdTransferCharacteristic`] from its decoded fields.
+    pub fn new(encoding: TransferPointEncoding, curve: TransferCurve) -> Self {
+        Self { encoding, curve }
+    }
+}
