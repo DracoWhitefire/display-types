@@ -30,6 +30,9 @@ pub mod vtdb;
 /// Misc block types: `InfoFrameDescriptor`, `VendorSpecificBlock`, `infoframe_type`.
 pub mod misc;
 
+/// Well-known IEEE OUI constants for identifying vendor-specific blocks.
+pub mod oui;
+
 /// VIC-to-VideoMode lookup table for CEA-861 Video Identification Codes.
 pub mod vic_table;
 
