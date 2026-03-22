@@ -12,11 +12,18 @@ pub mod video_capability;
 /// Colorimetry Data Block types (extended tag `0x05`).
 pub mod colorimetry;
 
-/// HDR Static Metadata Data Block types (extended tag `0x06`).
+/// HDR Static and Dynamic Metadata Data Block types (extended tags `0x06`, `0x07`).
 pub mod hdr;
+
+/// Speaker Allocation, Room Configuration, and Speaker Location types.
+pub mod speaker;
 
 pub use audio::{AudioFormat, AudioFormatInfo, AudioSampleRates, ShortAudioDescriptor};
 pub use colorimetry::{ColorimetryBlock, ColorimetryFlags};
 pub use hdmi_vsdb::{HdmiVsdb, HdmiVsdbFlags};
-pub use hdr::{HdrEotf, HdrStaticMetadata};
+pub use hdr::{HdrDynamicMetadataDescriptor, HdrEotf, HdrStaticMetadata};
+pub use speaker::{
+    RoomConfigurationBlock, SpeakerAllocation, SpeakerAllocationFlags, SpeakerAllocationFlags2,
+    SpeakerAllocationFlags3, SpeakerLocationEntry,
+};
 pub use video_capability::{VideoCapability, VideoCapabilityFlags};
