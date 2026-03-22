@@ -30,6 +30,9 @@ pub mod vtdb;
 /// Misc block types: `InfoFrameDescriptor`, `VendorSpecificBlock`, `infoframe_type`.
 pub mod misc;
 
+/// VIC-to-VideoMode lookup table for CEA-861 Video Identification Codes.
+pub mod vic_table;
+
 /// VESA Display Device Data Block types (extended tag `0x02`).
 pub mod vesa_dddb;
 
@@ -55,6 +58,7 @@ pub use vesa_dddb::VesaDisplayDeviceBlock;
 pub use vesa_transfer::DtcPointEncoding;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use vesa_transfer::VesaTransferCharacteristic;
+pub use vic_table::vic_to_mode;
 pub use video_capability::{VideoCapability, VideoCapabilityFlags};
 pub use vtdb::{T7VtdbBlock, T10VtdbEntry};
 #[cfg(any(feature = "alloc", feature = "std"))]
