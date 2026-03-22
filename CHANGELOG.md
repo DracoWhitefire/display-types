@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-03-22
+
+### Added
+
+**CEA-861 / CTA-861 extension types** (`display_types::cea861`)
+
+- `Cea861Flags` — capability flags from byte 3 of a CEA-861 extension block (underscan,
+  basic audio, YCbCr 4:4:4/4:2:2)
+- `Cea861Capabilities` — all decoded data from a CEA-861 extension block, including VICs,
+  audio descriptors, colorimetry, HDR metadata, speaker allocation, vendor-specific blocks,
+  and more (`alloc`/`std` only)
+- `HdmiAudioBlock` — HDMI Audio Data Block (extended tag `0x12`), carrying Multi-Stream
+  Audio support flag and Short Audio Descriptors (`alloc`/`std` only)
+- `AudioFormat`, `AudioFormatInfo`, `AudioSampleRates`, `ShortAudioDescriptor` — audio
+  descriptor types from CEA Audio Data Blocks (tag `0x01`)
+- `HdmiVsdb`, `HdmiVsdbFlags` — HDMI 1.x Vendor-Specific Data Block (OUI `0x000C03`)
+- `VideoCapability`, `VideoCapabilityFlags` — Video Capability Data Block (extended tag `0x00`)
+- `ColorimetryBlock`, `ColorimetryFlags` — Colorimetry Data Block (extended tag `0x05`)
+- `HdrEotf`, `HdrStaticMetadata`, `HdrDynamicMetadataDescriptor` — HDR Static and Dynamic
+  Metadata Data Blocks (extended tags `0x06`, `0x07`)
+- `SpeakerAllocationFlags`, `SpeakerAllocationFlags2`, `SpeakerAllocationFlags3`,
+  `SpeakerAllocation`, `RoomConfigurationBlock`, `SpeakerLocationEntry` — Speaker Allocation,
+  Room Configuration, and Speaker Location Data Blocks
+- `DtcPointEncoding`, `VesaTransferCharacteristic` — VESA Display Transfer Characteristic
+  Data Block (standard tag `0x05`; `VesaTransferCharacteristic` is `alloc`/`std` only)
+- `HdmiForumFrl`, `HdmiDscMaxSlices`, `HdmiForumDsc`, `HdmiForumSinkCap` — HDMI Forum
+  Sink Capability Data Block (extended tags `0x78`, `0x79`)
+- `T7VtdbBlock`, `T8VtdbBlock`, `T10VtdbEntry`, `T10VtdbBlock`, `VtbExtBlock` — DisplayID
+  Type VII/VIII/X Video Timing Data Blocks and VESA VTB-EXT (`T8VtdbBlock`, `T10VtdbBlock`,
+  `VtbExtBlock` are `alloc`/`std` only)
+- `InfoFrameDescriptor`, `infoframe_type` — InfoFrame Data Block (extended tag `0x20`)
+- `VendorSpecificBlock` — Vendor-Specific Video/Audio Data Blocks (extended tags `0x01`,
+  `0x11`; `alloc`/`std` only)
+- `VesaDisplayDeviceBlock` — VESA Display Device Data Block (extended tag `0x02`)
+- `vic_to_mode(vic: u8) -> Option<VideoMode>` — resolves a CEA-861 Video Identification
+  Code (VICs 1–64 and CTA-861-I VICs 65–127, 193–219) to a `VideoMode`
+- `dmt_to_mode(id: u16) -> Option<VideoMode>` — resolves a VESA DMT ID (0x01–0x58) to
+  a `VideoMode`
+
+**OUI constants** (`display_types::cea861::oui`)
+
+- `HDMI_LICENSING` (`0x000C03`) — HDMI Licensing, LLC (HDMI 1.x VSDB)
+- `HDMI_FORUM` (`0xC45DD8`) — HDMI Forum (HF-VSDB)
+- `DOLBY_VISION` (`0x00D046`) — Dolby Laboratories
+- `HDR10_PLUS` (`0x90848B`) — Samsung Electronics / HDR10+ Technology
+
 ## [0.1.1] - 2026-03-22
 
 ### Added
