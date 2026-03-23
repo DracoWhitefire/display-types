@@ -1,24 +1,26 @@
 /// Maximum Fixed Rate Link (FRL) bandwidth supported by a HDMI 2.1 sink.
 ///
-/// Source: HDMI 2.1a, table of `Max_FRL_Rate` values.
+/// Variants are assigned the `Max_FRL_Rate` nibble values from the HDMI 2.1a spec directly.
+/// The discriminants establish the ordering: higher value = greater bandwidth.
 #[non_exhaustive]
+#[repr(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HdmiForumFrl {
     /// FRL not supported; TMDS only.
-    NotSupported,
+    NotSupported = 0,
     /// Up to 3 Gbps/lane on 3 lanes (≈ 9 Gbps total).
-    Rate3Gbps3Lanes,
+    Rate3Gbps3Lanes = 1,
     /// Up to 6 Gbps/lane on 3 lanes (≈ 18 Gbps).
-    Rate6Gbps3Lanes,
-    /// Up to 6 Gbps/lane on 3 lanes and 4 lanes (≈ 24 Gbps).
-    Rate6Gbps4Lanes,
+    Rate6Gbps3Lanes = 2,
+    /// Up to 6 Gbps/lane on 4 lanes (≈ 24 Gbps).
+    Rate6Gbps4Lanes = 3,
     /// Up to 8 Gbps/lane on 4 lanes (≈ 32 Gbps).
-    Rate8Gbps4Lanes,
+    Rate8Gbps4Lanes = 4,
     /// Up to 10 Gbps/lane on 4 lanes (≈ 40 Gbps).
-    Rate10Gbps4Lanes,
+    Rate10Gbps4Lanes = 5,
     /// Up to 12 Gbps/lane on 4 lanes (≈ 48 Gbps).
-    Rate12Gbps4Lanes,
+    Rate12Gbps4Lanes = 6,
 }
 
 impl HdmiForumFrl {
@@ -34,6 +36,18 @@ impl HdmiForumFrl {
             6 => Self::Rate12Gbps4Lanes,
             _ => Self::NotSupported, // reserved values
         }
+    }
+}
+
+impl PartialOrd for HdmiForumFrl {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for HdmiForumFrl {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        (*self as u8).cmp(&(*other as u8))
     }
 }
 
