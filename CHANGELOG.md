@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-23
+
+### Breaking changes
+
+- `VideoMode::with_detailed_timing` has a new first parameter `pixel_clock_khz: u32`.
+
+  Before:
+  ```rust
+  VideoMode::new(w, h, r, i).with_detailed_timing(
+      h_front_porch, h_sync_width,
+      v_front_porch, v_sync_width,
+      h_border, v_border,
+      stereo, sync,
+  )
+  ```
+  After:
+  ```rust
+  VideoMode::new(w, h, r, i).with_detailed_timing(
+      pixel_clock_khz,
+      h_front_porch, h_sync_width,
+      v_front_porch, v_sync_width,
+      h_border, v_border,
+      stereo, sync,
+  )
+  ```
+  The pixel clock is the first two bytes of a DTD (little-endian, in 10 kHz units for
+  EDID/DisplayID Type I–II; 1 kHz units for DisplayID Type VI). Multiply accordingly before
+  passing.
+
+### Added
+
+- `VideoMode::pixel_clock_khz: Option<u32>` — pixel clock in kHz, populated from Detailed
+  Timing Descriptors. `None` for modes decoded from Standard Timings or SVD entries, which
+  carry no authoritative clock value.
+- `ColorFormat` — a single color encoding format (`Rgb444`, `YCbCr444`, `YCbCr422`,
+  `YCbCr420`) for use in negotiated or candidate configurations. Distinct from
+  `DigitalColorEncoding`, which models the 2-bit EDID base block field. `YCbCr420` is
+  included here because it is signaled through CEA/CTA extension blocks rather than the
+  base block.
+- `HdmiForumFrl` now implements `PartialOrd` and `Ord`. Ordering is by bandwidth: higher
+  variant = greater link capacity. The implementation compares the spec `Max_FRL_Rate`
+  discriminant values directly rather than relying on declaration order.
+
+### Changed
+
+- `HdmiForumFrl` is now `#[repr(u8)]` with explicit discriminants matching the HDMI 2.1a
+  `Max_FRL_Rate` nibble values (0–6).
+- `vic_to_mode` now populates `pixel_clock_khz` for all VICs 1–64 (CEA-861-E) and
+  65–127, 193–219 (CTA-861-I). Pixel clocks are sourced from the CEA-861/CTA-861 spec.
+- `dmt_to_mode` now populates `pixel_clock_khz` for all DMT IDs 0x01–0x58. Pixel clocks
+  are sourced from VESA DMT v1.13.
+
 ## [0.1.3] - 2026-03-22
 
 ### Added
