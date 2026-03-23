@@ -110,6 +110,8 @@ pub struct VideoMode {
     pub stereo: StereoMode,
     /// Sync signal definition (`None` for non-DTD modes).
     pub sync: Option<SyncDefinition>,
+    /// Pixel clock in kHz (`None` for modes not decoded from a Detailed Timing Descriptor).
+    pub pixel_clock_khz: Option<u32>,
 }
 
 impl VideoMode {
@@ -133,10 +135,11 @@ impl VideoMode {
     /// Adds blanking-interval and signal fields decoded from a Detailed Timing Descriptor
     /// or equivalent source, returning the updated mode.
     ///
-    /// The 8-parameter count mirrors the DTD fields directly (EDID §3.10.3 / DisplayID §4.4).
+    /// The 9-parameter count mirrors the DTD fields directly (EDID §3.10.3 / DisplayID §4.4).
     #[allow(clippy::too_many_arguments)]
     pub fn with_detailed_timing(
         mut self,
+        pixel_clock_khz: u32,
         h_front_porch: u16,
         h_sync_width: u16,
         v_front_porch: u16,
@@ -146,6 +149,7 @@ impl VideoMode {
         stereo: StereoMode,
         sync: Option<SyncDefinition>,
     ) -> Self {
+        self.pixel_clock_khz = Some(pixel_clock_khz);
         self.h_front_porch = h_front_porch;
         self.h_sync_width = h_sync_width;
         self.v_front_porch = v_front_porch;
