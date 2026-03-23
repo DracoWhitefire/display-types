@@ -8,7 +8,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HdmiForumFrl {
     /// FRL not supported; TMDS only.
-    NotSupported    = 0,
+    NotSupported = 0,
     /// Up to 3 Gbps/lane on 3 lanes (≈ 9 Gbps total).
     Rate3Gbps3Lanes = 1,
     /// Up to 6 Gbps/lane on 3 lanes (≈ 18 Gbps).
