@@ -110,6 +110,8 @@ pub struct VideoMode {
     pub stereo: StereoMode,
     /// Sync signal definition (`None` for non-DTD modes).
     pub sync: Option<SyncDefinition>,
+    /// Pixel clock in kHz (`None` for modes not decoded from a Detailed Timing Descriptor).
+    pub pixel_clock_khz: Option<u32>,
 }
 
 impl VideoMode {
@@ -154,6 +156,12 @@ impl VideoMode {
         self.v_border = v_border;
         self.stereo = stereo;
         self.sync = sync;
+        self
+    }
+
+    /// Sets the pixel clock decoded from a Detailed Timing Descriptor, in kHz.
+    pub fn with_pixel_clock(mut self, khz: u32) -> Self {
+        self.pixel_clock_khz = Some(khz);
         self
     }
 }
