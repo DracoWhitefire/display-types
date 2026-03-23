@@ -29,8 +29,8 @@ pub use prelude::{Arc, Box, String, Vec};
 /// Color-related model types.
 pub mod color;
 pub use color::{
-    AnalogColorType, Chromaticity, ChromaticityPoint, ColorBitDepth, ColorManagementData,
-    DcmChannel, DigitalColorEncoding, DisplayGamma, WhitePoint,
+    AnalogColorType, Chromaticity, ChromaticityPoint, ColorBitDepth, ColorFormat,
+    ColorManagementData, DcmChannel, DigitalColorEncoding, DisplayGamma, WhitePoint,
 };
 
 /// Input interface model types.
