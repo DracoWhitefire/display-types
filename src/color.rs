@@ -101,6 +101,27 @@ pub enum DigitalColorEncoding {
     Rgb444YCbCr444YCbCr422,
 }
 
+/// A single color encoding format, used to describe a specific negotiated or candidate
+/// configuration.
+///
+/// Unlike [`DigitalColorEncoding`], which models the 2-bit EDID base block field and therefore
+/// only expresses combinations present in that field, `ColorFormat` names each encoding
+/// individually. It covers YCbCr 4:2:0, which is signaled through CEA/CTA extension blocks
+/// rather than the base block.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ColorFormat {
+    /// RGB 4:4:4.
+    Rgb444,
+    /// YCbCr 4:4:4.
+    YCbCr444,
+    /// YCbCr 4:2:2.
+    YCbCr422,
+    /// YCbCr 4:2:0.
+    YCbCr420,
+}
+
 /// Display color type for an analog display, decoded from EDID base block byte `0x18` bits 4–3.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
