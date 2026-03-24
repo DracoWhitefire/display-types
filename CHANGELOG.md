@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-03-24
+
+### Added
+
+- `ColorBitDepths` — compact u8 bitset of supported bit depths for a single color
+  format. Constants `BPC_6`…`BPC_16`; methods `is_empty()`, `supports(ColorBitDepth)`,
+  and `with(ColorBitDepth)` for building and querying the set.
+- `ColorCapabilities` — aggregate of four `ColorBitDepths` fields (one per `ColorFormat`:
+  `rgb444`, `ycbcr444`, `ycbcr422`, `ycbcr420`). Method `for_format(&self, ColorFormat)`
+  returns the supported depths for that format. Replaces the scattered
+  `DigitalColorEncoding` + `ColorBitDepth` + Deep Color booleans as the primary
+  color-capability surface.
+- `color_capabilities_from_edid(encoding, base_depth, hdmi_vsdb, hdmi_forum) -> ColorCapabilities`
+  — free function that derives a `ColorCapabilities` from the four raw EDID/HDMI fields
+  that encode color support: the EDID base block encoding field, the base block bit depth
+  field, the HDMI 1.x VSDB deep color flags, and the HF-SCDB YCbCr 4:2:0 deep color flags.
+  Plain 8 bpc YCbCr 4:2:0 (signaled via the CEA/CTA Y420VDB) is not covered by these
+  fields; callers should supplement `ycbcr420` with `BPC_8` after calling this function
+  when that block is present.
+
 ## [0.2.0] - 2026-03-23
 
 ### Breaking changes
