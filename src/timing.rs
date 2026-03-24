@@ -1,3 +1,75 @@
+use crate::VideoMode;
+
+/// Estimates the pixel clock in kHz for a [`VideoMode`] using the CVT Reduced Blanking (CVT-RB)
+/// overhead model.
+///
+/// When `mode.pixel_clock_khz` is `Some`, returns that exact value directly — no estimation
+/// is performed. When it is `None` (modes decoded from standard timings, established timings,
+/// or SVD entries that lack a Detailed Timing Descriptor), applies the CVT-RB fixed blanking
+/// parameters:
+///
+/// - **Horizontal blanking:** 160 pixels (CVT-RB fixed blank, VESA CVT 1.2 §2.2).
+/// - **Vertical blanking:** 8 lines (minimum RB frame-height adjustment).
+///
+/// The resulting estimate is:
+///
+/// ```text
+/// pixel_clock_khz ≈ (width + 160) × (height + 8) × refresh_rate_hz / 1000
+/// ```
+///
+/// # Accuracy
+///
+/// CVT-RB is the dominant timing standard for modern display modes. For typical consumer
+/// resolutions the estimate is within ~2% of the actual clock. Interlaced modes and
+/// non-CVT timings (e.g. legacy CTA-861 formats with larger blanking) may diverge further.
+///
+/// For bandwidth ceiling checks this function is conservative in the direction of
+/// *under*-estimating — use it to detect obvious violations, not as a substitute for an
+/// exact clock when one is available.
+pub fn pixel_clock_khz_cvt_rb_estimate(mode: &VideoMode) -> u32 {
+    if let Some(clk) = mode.pixel_clock_khz {
+        return clk;
+    }
+    let h_total = mode.width as u64 + 160;
+    let v_total = mode.height as u64 + 8;
+    (h_total * v_total * mode.refresh_rate as u64 / 1000) as u32
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::VideoMode;
+
+    #[test]
+    fn exact_clock_returned_unchanged() {
+        let mode = VideoMode::new(1920, 1080, 60, false).with_detailed_timing(
+            148_500,
+            88,
+            44,
+            4,
+            5,
+            0,
+            0,
+            Default::default(),
+            None,
+        );
+        assert_eq!(pixel_clock_khz_cvt_rb_estimate(&mode), 148_500);
+    }
+
+    #[test]
+    fn non_dtd_mode_uses_cvt_rb_formula() {
+        // 1920×1080@60: (1920+160) × (1080+8) × 60 / 1000 = 135_782
+        let mode = VideoMode::new(1920, 1080, 60, false);
+        assert_eq!(pixel_clock_khz_cvt_rb_estimate(&mode), 135_782);
+    }
+
+    #[test]
+    fn zero_refresh_rate_returns_zero() {
+        let mode = VideoMode::new(1920, 1080, 0, false);
+        assert_eq!(pixel_clock_khz_cvt_rb_estimate(&mode), 0);
+    }
+}
+
 /// Video timing support reported in the display range limits descriptor (`0xFD`), byte 10.
 ///
 /// Indicates which timing generation formula (if any) the display supports beyond the

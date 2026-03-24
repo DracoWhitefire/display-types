@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-03-24
+
+### Added
+
+- `pixel_clock_khz_cvt_rb_estimate(mode: &VideoMode) -> u32` — free function in
+  `display_types::timing` that returns the pixel clock in kHz for any `VideoMode`.
+  When `mode.pixel_clock_khz` is `Some`, returns that exact value unchanged. When it is
+  `None` (modes decoded from standard timings, established timings, or SVD entries), applies
+  the CVT Reduced Blanking fixed-blanking model: `(width + 160) × (height + 8) × refresh_rate / 1000`.
+  Accurate to ~2% for typical consumer resolutions using CVT-RB timings; biased toward
+  under-estimation, so suitable as a conservative input to TMDS bandwidth ceiling checks
+  but not as a substitute for an exact clock.
+
+### Internal
+
+- Unit tests for `color_capabilities_from_edid` covering all code paths: RGB with and
+  without VSDB, base-depth fallback, DC flag combinations, `DC_Y444` interaction with
+  YCbCr 4:4:4 depth mirroring, YCbCr 4:2:2 fixed at 8 bpc, and all YCbCr 4:2:0 deep
+  color flag combinations.
+- Coverage ratchet: CI now measures line coverage with `cargo-llvm-cov` across `std`
+  and `serde` feature sets and fails if coverage drops below `.coverage-baseline`. When
+  coverage improves on a push to `main` or `develop`, CI opens a PR automatically to
+  ratchet the baseline forward.
+
 ## [0.2.1] - 2026-03-24
 
 ### Added
