@@ -54,7 +54,7 @@ pub use screen::ScreenSize;
 pub mod timing;
 pub use timing::{
     CvtAspectRatio, CvtAspectRatios, CvtScaling, CvtSupportParams, GtfSecondaryParams,
-    TimingFormula,
+    TimingFormula, pixel_clock_khz_cvt_rb_estimate,
 };
 
 /// Panel hardware characteristic types.

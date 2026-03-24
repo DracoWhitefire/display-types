@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `pixel_clock_khz_cvt_rb_estimate(mode: &VideoMode) -> u32` — free function in
+  `display_types::timing` that returns the pixel clock in kHz for any `VideoMode`.
+  When `mode.pixel_clock_khz` is `Some`, returns that exact value unchanged. When it is
+  `None` (modes decoded from standard timings, established timings, or SVD entries), applies
+  the CVT Reduced Blanking fixed-blanking model: `(width + 160) × (height + 8) × refresh_rate / 1000`.
+  Accurate to ~2% for typical consumer resolutions using CVT-RB timings; biased toward
+  under-estimation, so suitable as a conservative input to TMDS bandwidth ceiling checks
+  but not as a substitute for an exact clock.
+
 ### Internal
 
 - Unit tests for `color_capabilities_from_edid` covering all code paths: RGB with and
