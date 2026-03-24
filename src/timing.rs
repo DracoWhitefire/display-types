@@ -42,8 +42,17 @@ mod tests {
 
     #[test]
     fn exact_clock_returned_unchanged() {
-        let mode = VideoMode::new(1920, 1080, 60, false)
-            .with_detailed_timing(148_500, 88, 44, 4, 5, 0, 0, Default::default(), None);
+        let mode = VideoMode::new(1920, 1080, 60, false).with_detailed_timing(
+            148_500,
+            88,
+            44,
+            4,
+            5,
+            0,
+            0,
+            Default::default(),
+            None,
+        );
         assert_eq!(pixel_clock_khz_cvt_rb_estimate(&mode), 148_500);
     }
 
