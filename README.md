@@ -48,6 +48,11 @@ For bare `no_std` (scalars only):
 display-types = { version = "0.1", default-features = false }
 ```
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and [doc/setup.md](doc/setup.md)
+for build and test instructions.
+
 ## License
 
 Licensed under the [Mozilla Public License 2.0](LICENSE).
