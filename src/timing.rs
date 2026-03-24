@@ -35,6 +35,32 @@ pub fn pixel_clock_khz_cvt_rb_estimate(mode: &VideoMode) -> u32 {
     (h_total * v_total * mode.refresh_rate as u64 / 1000) as u32
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::VideoMode;
+
+    #[test]
+    fn exact_clock_returned_unchanged() {
+        let mode = VideoMode::new(1920, 1080, 60, false)
+            .with_detailed_timing(148_500, 88, 44, 4, 5, 0, 0, Default::default(), None);
+        assert_eq!(pixel_clock_khz_cvt_rb_estimate(&mode), 148_500);
+    }
+
+    #[test]
+    fn non_dtd_mode_uses_cvt_rb_formula() {
+        // 1920×1080@60: (1920+160) × (1080+8) × 60 / 1000 = 135_782
+        let mode = VideoMode::new(1920, 1080, 60, false);
+        assert_eq!(pixel_clock_khz_cvt_rb_estimate(&mode), 135_782);
+    }
+
+    #[test]
+    fn zero_refresh_rate_returns_zero() {
+        let mode = VideoMode::new(1920, 1080, 0, false);
+        assert_eq!(pixel_clock_khz_cvt_rb_estimate(&mode), 0);
+    }
+}
+
 /// Video timing support reported in the display range limits descriptor (`0xFD`), byte 10.
 ///
 /// Indicates which timing generation formula (if any) the display supports beyond the
