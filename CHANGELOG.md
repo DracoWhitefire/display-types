@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Internal
+
+- Unit tests for `color_capabilities_from_edid` covering all code paths: RGB with and
+  without VSDB, base-depth fallback, DC flag combinations, `DC_Y444` interaction with
+  YCbCr 4:4:4 depth mirroring, YCbCr 4:2:2 fixed at 8 bpc, and all YCbCr 4:2:0 deep
+  color flag combinations.
+- Coverage ratchet: CI now measures line coverage with `cargo-llvm-cov` and fails if
+  coverage drops below the value in `.coverage-baseline`. Update that file alongside
+  any PR that raises coverage.
+
 ## [0.2.1] - 2026-03-24
 
 ### Added
