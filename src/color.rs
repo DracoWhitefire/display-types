@@ -171,6 +171,192 @@ impl ColorBitDepth {
     }
 }
 
+/// Bit depths supported for a given color encoding, as a compact bitset.
+///
+/// Used as the per-format field in [`ColorCapabilities`].
+/// An empty set means the color format is not supported at all.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ColorBitDepths(u8);
+
+impl ColorBitDepths {
+    /// No bit depths supported (format absent).
+    pub const NONE: Self = Self(0);
+    /// 6 bits per primary color channel.
+    pub const BPC_6: Self = Self(1 << 0);
+    /// 8 bits per primary color channel.
+    pub const BPC_8: Self = Self(1 << 1);
+    /// 10 bits per primary color channel.
+    pub const BPC_10: Self = Self(1 << 2);
+    /// 12 bits per primary color channel.
+    pub const BPC_12: Self = Self(1 << 3);
+    /// 14 bits per primary color channel.
+    pub const BPC_14: Self = Self(1 << 4);
+    /// 16 bits per primary color channel.
+    pub const BPC_16: Self = Self(1 << 5);
+
+    /// Returns `true` if this set contains no supported bit depths.
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    /// Returns a new set that also includes `depth`.
+    pub const fn with(self, depth: ColorBitDepth) -> Self {
+        Self(self.0 | Self::flag(depth).0)
+    }
+
+    /// Returns `true` if `depth` is in this set.
+    pub const fn supports(self, depth: ColorBitDepth) -> bool {
+        self.0 & Self::flag(depth).0 != 0
+    }
+
+    const fn flag(depth: ColorBitDepth) -> Self {
+        match depth {
+            ColorBitDepth::Depth6 => Self::BPC_6,
+            ColorBitDepth::Depth8 => Self::BPC_8,
+            ColorBitDepth::Depth10 => Self::BPC_10,
+            ColorBitDepth::Depth12 => Self::BPC_12,
+            ColorBitDepth::Depth14 => Self::BPC_14,
+            ColorBitDepth::Depth16 => Self::BPC_16,
+        }
+    }
+}
+
+/// Supported color format and bit-depth combinations for a display.
+///
+/// Each field holds the set of bit depths the sink accepts for that color format.
+/// An empty [`ColorBitDepths`] means the format is not supported at all.
+///
+/// This replaces the scattered `DigitalColorEncoding` + `color_bit_depth` + Deep Color
+/// booleans with a single structure that can answer "does this sink accept
+/// (YCbCr 4:2:0, 10 bpc)?" directly.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ColorCapabilities {
+    /// Supported bit depths for RGB 4:4:4.
+    pub rgb444: ColorBitDepths,
+    /// Supported bit depths for YCbCr 4:4:4.
+    pub ycbcr444: ColorBitDepths,
+    /// Supported bit depths for YCbCr 4:2:2.
+    pub ycbcr422: ColorBitDepths,
+    /// Supported bit depths for YCbCr 4:2:0.
+    pub ycbcr420: ColorBitDepths,
+}
+
+impl ColorCapabilities {
+    /// Returns the supported bit depths for the given color format.
+    pub const fn for_format(&self, format: ColorFormat) -> ColorBitDepths {
+        match format {
+            ColorFormat::Rgb444 => self.rgb444,
+            ColorFormat::YCbCr444 => self.ycbcr444,
+            ColorFormat::YCbCr422 => self.ycbcr422,
+            ColorFormat::YCbCr420 => self.ycbcr420,
+        }
+    }
+}
+
+/// Derives [`ColorCapabilities`] from the raw EDID fields that encode color support.
+///
+/// Combines four independent EDID/HDMI sources into a single coherent map:
+///
+/// - `encoding` — EDID base block byte `0x18` bits 4–3: which base formats are declared.
+/// - `base_depth` — EDID base block byte `0x14` bits 6–4: native input bit depth.
+///   Used only when `hdmi_vsdb` is absent (non-HDMI or very old HDMI display).
+/// - `hdmi_vsdb` — HDMI 1.x VSDB flags: deep color depths for RGB and YCbCr 4:4:4.
+/// - `hdmi_forum` — HF-SCDB: deep color depths for YCbCr 4:2:0.
+///
+/// # YCbCr 4:2:0 at 8 bpc
+///
+/// Plain 8 bpc YCbCr 4:2:0 support (without deep color) is declared in the CEA/CTA
+/// YCbCr 4:2:0 Video Data Block, which is not captured by these four fields.
+/// This function infers 8 bpc YCbCr 4:2:0 support only when at least one deep color
+/// flag is set in `hdmi_forum`, since deep color implies baseline support.
+/// If a display supports 8 bpc YCbCr 4:2:0 but no deep color, supplement the returned
+/// value by adding [`ColorBitDepths::BPC_8`] to [`ColorCapabilities::ycbcr420`] after
+/// calling this function.
+pub fn color_capabilities_from_edid(
+    encoding: Option<DigitalColorEncoding>,
+    base_depth: Option<ColorBitDepth>,
+    hdmi_vsdb: Option<&crate::cea861::HdmiVsdb>,
+    hdmi_forum: Option<&crate::cea861::HdmiForumSinkCap>,
+) -> ColorCapabilities {
+    use crate::cea861::HdmiVsdbFlags;
+
+    let (ycbcr444_base, ycbcr422_base) = match encoding {
+        None | Some(DigitalColorEncoding::Rgb444) => (false, false),
+        Some(DigitalColorEncoding::Rgb444YCbCr444) => (true, false),
+        Some(DigitalColorEncoding::Rgb444YCbCr422) => (false, true),
+        Some(DigitalColorEncoding::Rgb444YCbCr444YCbCr422) => (true, true),
+    };
+
+    // RGB: always 8 bpc; deep color depths from VSDB flags.
+    // Without VSDB, fall back to the base block bit depth declaration.
+    let rgb444 = if let Some(vsdb) = hdmi_vsdb {
+        let mut d = ColorBitDepths::BPC_8;
+        if vsdb.flags.contains(HdmiVsdbFlags::DC_30BIT) {
+            d = d.with(ColorBitDepth::Depth10);
+        }
+        if vsdb.flags.contains(HdmiVsdbFlags::DC_36BIT) {
+            d = d.with(ColorBitDepth::Depth12);
+        }
+        if vsdb.flags.contains(HdmiVsdbFlags::DC_48BIT) {
+            d = d.with(ColorBitDepth::Depth16);
+        }
+        d
+    } else {
+        base_depth.map_or(ColorBitDepths::BPC_8, |d| ColorBitDepths::BPC_8.with(d))
+    };
+
+    // YCbCr 4:4:4: deep color only when DC_Y444 is set alongside the RGB deep color flags.
+    let ycbcr444 = if ycbcr444_base {
+        let dc_y444 = hdmi_vsdb.is_some_and(|v| v.flags.contains(HdmiVsdbFlags::DC_Y444));
+        if dc_y444 {
+            rgb444
+        } else {
+            ColorBitDepths::BPC_8
+        }
+    } else {
+        ColorBitDepths::NONE
+    };
+
+    // YCbCr 4:2:2: deep color is not tracked separately in these fields.
+    let ycbcr422 = if ycbcr422_base {
+        ColorBitDepths::BPC_8
+    } else {
+        ColorBitDepths::NONE
+    };
+
+    // YCbCr 4:2:0: deep color depths from HF-SCDB; 8 bpc implied by any deep color flag.
+    let ycbcr420 = if let Some(forum) = hdmi_forum {
+        let any_dc = forum.dc_30bit_420 || forum.dc_36bit_420 || forum.dc_48bit_420;
+        let mut d = if any_dc {
+            ColorBitDepths::BPC_8
+        } else {
+            ColorBitDepths::NONE
+        };
+        if forum.dc_30bit_420 {
+            d = d.with(ColorBitDepth::Depth10);
+        }
+        if forum.dc_36bit_420 {
+            d = d.with(ColorBitDepth::Depth12);
+        }
+        if forum.dc_48bit_420 {
+            d = d.with(ColorBitDepth::Depth16);
+        }
+        d
+    } else {
+        ColorBitDepths::NONE
+    };
+
+    ColorCapabilities {
+        rgb444,
+        ycbcr444,
+        ycbcr422,
+        ycbcr420,
+    }
+}
+
 /// DCM polynomial coefficients for a single primary colour, decoded from a `0xF9` descriptor.
 ///
 /// The `a3` and `a2` values are the second- and third-order coefficients of the colour
