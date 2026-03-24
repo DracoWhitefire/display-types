@@ -13,9 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without VSDB, base-depth fallback, DC flag combinations, `DC_Y444` interaction with
   YCbCr 4:4:4 depth mirroring, YCbCr 4:2:2 fixed at 8 bpc, and all YCbCr 4:2:0 deep
   color flag combinations.
-- Coverage ratchet: CI now measures line coverage with `cargo-llvm-cov` and fails if
-  coverage drops below the value in `.coverage-baseline`. Update that file alongside
-  any PR that raises coverage.
+- Coverage ratchet: CI now measures line coverage with `cargo-llvm-cov` across `std`
+  and `serde` feature sets and fails if coverage drops below `.coverage-baseline`. When
+  coverage improves on a push to `main` or `develop`, CI opens a PR automatically to
+  ratchet the baseline forward.
 
 ## [0.2.1] - 2026-03-24
 
