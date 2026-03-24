@@ -386,3 +386,237 @@ pub struct ColorManagementData {
     /// DCM coefficients for the blue primary.
     pub blue: DcmChannel,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cea861::{HdmiForumFrl, HdmiForumSinkCap, HdmiVsdb, HdmiVsdbFlags};
+
+    /// Minimal VSDB with only the deep color flags set.
+    fn vsdb(flags: HdmiVsdbFlags) -> HdmiVsdb {
+        HdmiVsdb::new(0, flags, None, None, None, None, None)
+    }
+
+    /// Minimal HF-SCDB with only the YCbCr 4:2:0 deep color flags set.
+    fn hf_forum(dc_30: bool, dc_36: bool, dc_48: bool) -> HdmiForumSinkCap {
+        HdmiForumSinkCap::new(
+            1,
+            0,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            HdmiForumFrl::NotSupported,
+            false,
+            dc_48,
+            dc_36,
+            dc_30,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            None,
+            None,
+            None,
+        )
+    }
+
+    fn caps(
+        encoding: Option<DigitalColorEncoding>,
+        base_depth: Option<ColorBitDepth>,
+        vsdb: Option<&HdmiVsdb>,
+        forum: Option<&HdmiForumSinkCap>,
+    ) -> ColorCapabilities {
+        color_capabilities_from_edid(encoding, base_depth, vsdb, forum)
+    }
+
+    // --- RGB 4:4:4 ---
+
+    #[test]
+    fn rgb_no_vsdb_no_base_depth_gives_8bpc() {
+        let c = caps(None, None, None, None);
+        assert_eq!(c.rgb444, ColorBitDepths::BPC_8);
+    }
+
+    #[test]
+    fn rgb_no_vsdb_base_depth_added() {
+        let c = caps(None, Some(ColorBitDepth::Depth12), None, None);
+        assert_eq!(c.rgb444, ColorBitDepths::BPC_8.with(ColorBitDepth::Depth12));
+    }
+
+    #[test]
+    fn rgb_vsdb_no_dc_flags_gives_8bpc() {
+        let v = vsdb(HdmiVsdbFlags::empty());
+        let c = caps(None, Some(ColorBitDepth::Depth12), Some(&v), None);
+        // VSDB present → base_depth ignored; no DC flags → 8 bpc only.
+        assert_eq!(c.rgb444, ColorBitDepths::BPC_8);
+    }
+
+    #[test]
+    fn rgb_vsdb_dc_30bit() {
+        let v = vsdb(HdmiVsdbFlags::DC_30BIT);
+        let c = caps(None, None, Some(&v), None);
+        assert_eq!(c.rgb444, ColorBitDepths::BPC_8.with(ColorBitDepth::Depth10));
+    }
+
+    #[test]
+    fn rgb_vsdb_dc_36bit() {
+        let v = vsdb(HdmiVsdbFlags::DC_36BIT);
+        let c = caps(None, None, Some(&v), None);
+        assert_eq!(c.rgb444, ColorBitDepths::BPC_8.with(ColorBitDepth::Depth12));
+    }
+
+    #[test]
+    fn rgb_vsdb_dc_48bit() {
+        let v = vsdb(HdmiVsdbFlags::DC_48BIT);
+        let c = caps(None, None, Some(&v), None);
+        assert_eq!(c.rgb444, ColorBitDepths::BPC_8.with(ColorBitDepth::Depth16));
+    }
+
+    #[test]
+    fn rgb_vsdb_multiple_dc_flags() {
+        let v = vsdb(HdmiVsdbFlags::DC_30BIT | HdmiVsdbFlags::DC_36BIT);
+        let c = caps(None, None, Some(&v), None);
+        assert_eq!(
+            c.rgb444,
+            ColorBitDepths::BPC_8
+                .with(ColorBitDepth::Depth10)
+                .with(ColorBitDepth::Depth12)
+        );
+    }
+
+    // --- YCbCr 4:4:4 ---
+
+    #[test]
+    fn ycbcr444_not_declared_gives_none() {
+        let v = vsdb(HdmiVsdbFlags::DC_30BIT | HdmiVsdbFlags::DC_Y444);
+        let c = caps(Some(DigitalColorEncoding::Rgb444), None, Some(&v), None);
+        assert_eq!(c.ycbcr444, ColorBitDepths::NONE);
+    }
+
+    #[test]
+    fn ycbcr444_declared_without_dc_y444_gives_8bpc() {
+        let v = vsdb(HdmiVsdbFlags::DC_30BIT); // DC_Y444 not set
+        let c = caps(
+            Some(DigitalColorEncoding::Rgb444YCbCr444),
+            None,
+            Some(&v),
+            None,
+        );
+        assert_eq!(c.ycbcr444, ColorBitDepths::BPC_8);
+    }
+
+    #[test]
+    fn ycbcr444_declared_with_dc_y444_mirrors_rgb() {
+        let v = vsdb(HdmiVsdbFlags::DC_30BIT | HdmiVsdbFlags::DC_36BIT | HdmiVsdbFlags::DC_Y444);
+        let c = caps(
+            Some(DigitalColorEncoding::Rgb444YCbCr444),
+            None,
+            Some(&v),
+            None,
+        );
+        // DC_Y444 set → YCbCr 4:4:4 gets the same depths as RGB.
+        assert_eq!(c.ycbcr444, c.rgb444);
+        assert!(c.ycbcr444.supports(ColorBitDepth::Depth10));
+        assert!(c.ycbcr444.supports(ColorBitDepth::Depth12));
+    }
+
+    #[test]
+    fn ycbcr444_declared_no_vsdb_gives_8bpc() {
+        // No VSDB at all → DC_Y444 cannot be set → 8 bpc only.
+        let c = caps(Some(DigitalColorEncoding::Rgb444YCbCr444), None, None, None);
+        assert_eq!(c.ycbcr444, ColorBitDepths::BPC_8);
+    }
+
+    // --- YCbCr 4:2:2 ---
+
+    #[test]
+    fn ycbcr422_not_declared_gives_none() {
+        let c = caps(Some(DigitalColorEncoding::Rgb444YCbCr444), None, None, None);
+        assert_eq!(c.ycbcr422, ColorBitDepths::NONE);
+    }
+
+    #[test]
+    fn ycbcr422_declared_gives_8bpc_only() {
+        let c = caps(Some(DigitalColorEncoding::Rgb444YCbCr422), None, None, None);
+        assert_eq!(c.ycbcr422, ColorBitDepths::BPC_8);
+    }
+
+    #[test]
+    fn ycbcr422_deep_color_not_tracked() {
+        // Even with all VSDB DC flags, 4:2:2 stays at 8 bpc.
+        let v = vsdb(HdmiVsdbFlags::DC_30BIT | HdmiVsdbFlags::DC_36BIT | HdmiVsdbFlags::DC_48BIT);
+        let c = caps(
+            Some(DigitalColorEncoding::Rgb444YCbCr444YCbCr422),
+            None,
+            Some(&v),
+            None,
+        );
+        assert_eq!(c.ycbcr422, ColorBitDepths::BPC_8);
+    }
+
+    // --- YCbCr 4:2:0 ---
+
+    #[test]
+    fn ycbcr420_no_hf_scdb_gives_none() {
+        let c = caps(None, None, None, None);
+        assert_eq!(c.ycbcr420, ColorBitDepths::NONE);
+    }
+
+    #[test]
+    fn ycbcr420_hf_scdb_no_dc_flags_gives_none() {
+        let f = hf_forum(false, false, false);
+        let c = caps(None, None, None, Some(&f));
+        assert_eq!(c.ycbcr420, ColorBitDepths::NONE);
+    }
+
+    #[test]
+    fn ycbcr420_dc_30bit_gives_8_and_10bpc() {
+        let f = hf_forum(true, false, false);
+        let c = caps(None, None, None, Some(&f));
+        assert_eq!(
+            c.ycbcr420,
+            ColorBitDepths::BPC_8.with(ColorBitDepth::Depth10)
+        );
+    }
+
+    #[test]
+    fn ycbcr420_dc_36bit_gives_8_and_12bpc() {
+        let f = hf_forum(false, true, false);
+        let c = caps(None, None, None, Some(&f));
+        assert_eq!(
+            c.ycbcr420,
+            ColorBitDepths::BPC_8.with(ColorBitDepth::Depth12)
+        );
+    }
+
+    #[test]
+    fn ycbcr420_dc_48bit_gives_8_and_16bpc() {
+        let f = hf_forum(false, false, true);
+        let c = caps(None, None, None, Some(&f));
+        assert_eq!(
+            c.ycbcr420,
+            ColorBitDepths::BPC_8.with(ColorBitDepth::Depth16)
+        );
+    }
+
+    #[test]
+    fn ycbcr420_all_dc_flags() {
+        let f = hf_forum(true, true, true);
+        let c = caps(None, None, None, Some(&f));
+        assert_eq!(
+            c.ycbcr420,
+            ColorBitDepths::BPC_8
+                .with(ColorBitDepth::Depth10)
+                .with(ColorBitDepth::Depth12)
+                .with(ColorBitDepth::Depth16)
+        );
+    }
+}
