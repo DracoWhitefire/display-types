@@ -31,21 +31,21 @@ exposes only the scalar types (enums and copy structs).
 
 ```toml
 [dependencies]
-display-types = "0.1"
+display-types = "0.2"
 ```
 
 For `no_std` with heap allocation (e.g. embedded with an allocator):
 
 ```toml
 [dependencies]
-display-types = { version = "0.1", default-features = false, features = ["alloc"] }
+display-types = { version = "0.2", default-features = false, features = ["alloc"] }
 ```
 
 For bare `no_std` (scalars only):
 
 ```toml
 [dependencies]
-display-types = { version = "0.1", default-features = false }
+display-types = { version = "0.2", default-features = false }
 ```
 
 ## Contributing
