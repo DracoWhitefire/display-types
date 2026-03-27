@@ -91,7 +91,7 @@ pub struct VideoMode {
     /// Vertical resolution in pixels.
     pub height: u16,
     /// Refresh rate in Hz.
-    pub refresh_rate: u8,
+    pub refresh_rate: u16,
     /// `true` for interlaced modes; `false` for progressive (the common case).
     pub interlaced: bool,
     /// Horizontal front porch in pixels (0 when not decoded from a DTD).
@@ -122,7 +122,7 @@ impl VideoMode {
     /// [`StereoMode::None`], and `sync` defaults to `None`. Use
     /// [`with_detailed_timing`][Self::with_detailed_timing] to set those fields when
     /// decoding from a Detailed Timing Descriptor.
-    pub fn new(width: u16, height: u16, refresh_rate: u8, interlaced: bool) -> Self {
+    pub fn new(width: u16, height: u16, refresh_rate: u16, interlaced: bool) -> Self {
         Self {
             width,
             height,

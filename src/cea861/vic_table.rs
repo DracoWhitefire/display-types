@@ -15,7 +15,7 @@ pub fn vic_to_mode(vic: u8) -> Option<VideoMode> {
     let (w, h, r, interlaced, hfp, hsw, vfp, vsw, vpos, hpos, pixel_clock_khz): (
         u16,
         u16,
-        u8,
+        u16,
         bool,
         u16,
         u16,
