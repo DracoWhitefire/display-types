@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-25
+
+### Added
+
+- `ModeSource` — enum recording the source from which a `VideoMode` was decoded:
+  `Vic(u8)` for CTA-861 Video Identification Codes, `DmtId(u16)` for VESA DMT table
+  entries, and `DtdIndex(u8)` for Detailed Timing Descriptors (zero-based index within
+  the containing EDID block). Marked `#[non_exhaustive]`.
+- `VideoMode::source: Option<ModeSource>` — populated automatically by `vic_to_mode` and
+  `dmt_to_mode`; parsers decoding DTDs should set it via `with_source`. `None` for modes
+  constructed directly via `VideoMode::new`. Preserves the identifier that was silently
+  dropped before, enabling reliable KMS mode correlation and per-mode capability checks
+  (e.g. CTA Y420 VDB / CMDB).
+- `VideoMode::with_source(ModeSource) -> Self` — builder for setting the source, consistent
+  with `with_pixel_clock` and `with_detailed_timing`.
+- `VideoMode::with_pixel_clock(pixel_clock_khz: u32) -> Self` — builder that sets the exact
+  pixel clock in kHz, bypassing the CVT-RB fallback in `pixel_clock_khz()`. Intended for
+  firmware and embedded callers that have the exact clock from a hardware PLL or timing
+  register but do not have full Detailed Timing Descriptor fields. Chain after
+  `VideoMode::new`: `VideoMode::new(w, h, r, i).with_pixel_clock(clk)`.
+
+### Breaking changes
+
+- `pixel_clock_khz_cvt_rb_estimate` was renamed to `pixel_clock_khz` to avoid the suggestion that it always estimates.
+- `VideoMode::refresh_rate` is now `u16` (was `u8`). The `VideoMode::new` constructor signature changes accordingly.
+ Values previously clamped to 255 now reflect the true encoded rate; 360 Hz panels and the 256 Hz maximum of DisplayID
+ Type V descriptors are represented correctly.
+
 ## [0.2.2] - 2026-03-24
 
 ### Added
