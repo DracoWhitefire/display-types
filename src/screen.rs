@@ -69,7 +69,14 @@ mod tests {
 
     #[test]
     fn landscape_ratio_none_for_other_variants() {
-        assert_eq!(ScreenSize::Physical { width_cm: 60, height_cm: 34 }.landscape_ratio(), None);
+        assert_eq!(
+            ScreenSize::Physical {
+                width_cm: 60,
+                height_cm: 34
+            }
+            .landscape_ratio(),
+            None
+        );
         assert_eq!(ScreenSize::Portrait(1).landscape_ratio(), None);
     }
 
@@ -84,7 +91,14 @@ mod tests {
 
     #[test]
     fn portrait_ratio_none_for_other_variants() {
-        assert_eq!(ScreenSize::Physical { width_cm: 60, height_cm: 34 }.portrait_ratio(), None);
+        assert_eq!(
+            ScreenSize::Physical {
+                width_cm: 60,
+                height_cm: 34
+            }
+            .portrait_ratio(),
+            None
+        );
         assert_eq!(ScreenSize::Landscape(1).portrait_ratio(), None);
     }
 }
