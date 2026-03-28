@@ -54,3 +54,51 @@ impl ScreenSize {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn landscape_ratio_correct_formula() {
+        // raw=1: (1 + 99) / 100 = 1.00
+        assert_eq!(ScreenSize::Landscape(1).landscape_ratio(), Some(1.00));
+        // raw=100: (100 + 99) / 100 = 1.99
+        assert!((ScreenSize::Landscape(100).landscape_ratio().unwrap() - 1.99).abs() < 1e-5);
+    }
+
+    #[test]
+    fn landscape_ratio_none_for_other_variants() {
+        assert_eq!(
+            ScreenSize::Physical {
+                width_cm: 60,
+                height_cm: 34
+            }
+            .landscape_ratio(),
+            None
+        );
+        assert_eq!(ScreenSize::Portrait(1).landscape_ratio(), None);
+    }
+
+    #[test]
+    fn portrait_ratio_correct_formula() {
+        // raw=1: 100 / (1 + 99) = 1.00
+        assert_eq!(ScreenSize::Portrait(1).portrait_ratio(), Some(1.00));
+        // raw=100: 100 / (100 + 99) = 100 / 199 ≈ 0.50251
+        let r = ScreenSize::Portrait(100).portrait_ratio().unwrap();
+        assert!((r - 100.0 / 199.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn portrait_ratio_none_for_other_variants() {
+        assert_eq!(
+            ScreenSize::Physical {
+                width_cm: 60,
+                height_cm: 34
+            }
+            .portrait_ratio(),
+            None
+        );
+        assert_eq!(ScreenSize::Landscape(1).portrait_ratio(), None);
+    }
+}
