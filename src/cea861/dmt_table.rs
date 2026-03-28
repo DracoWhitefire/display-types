@@ -1,4 +1,4 @@
-use crate::{StereoMode, SyncDefinition, VideoMode};
+use crate::{ModeSource, StereoMode, SyncDefinition, VideoMode};
 
 /// Look up a VESA DMT ID and return the corresponding `VideoMode`, or `None`
 /// if the ID is not in the standard table.
@@ -36,7 +36,7 @@ pub fn dmt_to_mode(id: u16) -> Option<VideoMode> {
         };
     }
 
-    Some(match id {
+    let mode = match id {
         // 640×350
         0x01 => e!(640, 350, 85, false, 32, 64, 32, 3, true, false, 31500),
         // 640×400
@@ -150,5 +150,25 @@ pub fn dmt_to_mode(id: u16) -> Option<VideoMode> {
         0x57 => e!(4096, 2160, 60, false, 8, 32, 48, 8, true, true, 556744),
         0x58 => e!(4096, 2160, 60, false, 8, 32, 48, 8, true, true, 556188), // 59.94 Hz, stored as 60
         _ => return None,
-    })
+    };
+    Some(mode.with_source(ModeSource::DmtId(id)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dmt_id_is_preserved_in_source() {
+        let mode = dmt_to_mode(0x52).unwrap(); // 1920×1080 @ 60 Hz
+        assert_eq!(mode.width, 1920);
+        assert_eq!(mode.height, 1080);
+        assert_eq!(mode.source, Some(ModeSource::DmtId(0x52)));
+    }
+
+    #[test]
+    fn unknown_dmt_id_returns_none() {
+        assert!(dmt_to_mode(0x00).is_none());
+        assert!(dmt_to_mode(0x59).is_none());
+    }
 }

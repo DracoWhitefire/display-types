@@ -54,7 +54,7 @@ pub use screen::ScreenSize;
 pub mod timing;
 pub use timing::{
     CvtAspectRatio, CvtAspectRatios, CvtScaling, CvtSupportParams, GtfSecondaryParams,
-    TimingFormula, pixel_clock_khz_cvt_rb_estimate,
+    TimingFormula, pixel_clock_khz,
 };
 
 /// Panel hardware characteristic types.
@@ -81,7 +81,7 @@ pub use displayid::DisplayIdCapabilities;
 pub mod capabilities;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use capabilities::{DisplayCapabilities, ExtensionData, ParseWarning};
-pub use capabilities::{EdidVersion, StereoMode, SyncDefinition, VideoMode};
+pub use capabilities::{EdidVersion, ModeSource, StereoMode, SyncDefinition, VideoMode};
 pub use transfer::TransferPointEncoding;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use transfer::{DisplayIdTransferCharacteristic, TransferCurve};
