@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-03-28
+
+### Added
+
+- `ResolvedDisplayConfig` — hardware-ready output type produced by a negotiation engine,
+  carrying the fields a DRM driver or InfoFrame encoder needs to configure a link:
+  `VideoMode`, `ColorFormat`, `ColorBitDepth`, `HdmiForumFrl`, `dsc_required: bool`, and
+  `vrr_applicable: bool`. Lives in `display-types` so downstream consumers can depend on
+  it without a direct dependency on the negotiation engine. Constructor:
+  `ResolvedDisplayConfig::new(mode, color_encoding, bit_depth, frl_rate, dsc_required,
+  vrr_applicable)`. Marked `#[non_exhaustive]`.
+- `HdmiForumFrl` re-exported at the crate root (`display_types::HdmiForumFrl`) for
+  convenience alongside `ColorFormat`, `ColorBitDepth`, and the other negotiation types;
+  previously only accessible as `display_types::cea861::HdmiForumFrl`.
+
 ## [0.3.0] - 2026-03-25
 
 ### Added
