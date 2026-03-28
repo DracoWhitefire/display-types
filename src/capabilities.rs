@@ -76,6 +76,25 @@ pub enum SyncDefinition {
     },
 }
 
+/// The source from which a [`VideoMode`] was decoded.
+///
+/// Populated automatically by [`vic_to_mode`][crate::cea861::vic_to_mode] and
+/// [`dmt_to_mode`][crate::cea861::dmt_to_mode]; parsers that decode Detailed Timing
+/// Descriptors should set it via [`VideoMode::with_source`]. `None` for modes
+/// constructed directly via [`VideoMode::new`].
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModeSource {
+    /// A CTA-861 Video Identification Code, as used in Short Video Descriptors,
+    /// the Y420 Video Data Block, and the Y420 Capability Map Data Block.
+    Vic(u8),
+    /// A VESA Display Monitor Timings identifier (0x01–0x58).
+    DmtId(u16),
+    /// Zero-based index of a Detailed Timing Descriptor within its containing EDID block.
+    DtdIndex(u8),
+}
+
 /// A display video mode expressed as resolution, refresh rate, and scan type.
 ///
 /// Use [`VideoMode::new`] to construct a mode with only identity fields (the common case
@@ -112,6 +131,10 @@ pub struct VideoMode {
     pub sync: Option<SyncDefinition>,
     /// Pixel clock in kHz (`None` for modes not decoded from a Detailed Timing Descriptor).
     pub pixel_clock_khz: Option<u32>,
+    /// The source from which this mode was decoded, if known.
+    ///
+    /// `None` for modes constructed directly via [`VideoMode::new`] without a table lookup.
+    pub source: Option<ModeSource>,
 }
 
 impl VideoMode {
@@ -150,6 +173,17 @@ impl VideoMode {
     /// ```
     pub fn with_pixel_clock(mut self, pixel_clock_khz: u32) -> Self {
         self.pixel_clock_khz = Some(pixel_clock_khz);
+        self
+    }
+
+    /// Sets the mode source, returning the updated mode.
+    ///
+    /// Called automatically by [`vic_to_mode`][crate::cea861::vic_to_mode] and
+    /// [`dmt_to_mode`][crate::cea861::dmt_to_mode]. Parsers decoding Detailed Timing
+    /// Descriptors should call `.with_source(ModeSource::DtdIndex(n))` so that the
+    /// descriptor's position survives into negotiated output.
+    pub fn with_source(mut self, source: ModeSource) -> Self {
+        self.source = Some(source);
         self
     }
 

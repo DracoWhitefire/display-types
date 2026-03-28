@@ -81,7 +81,7 @@ pub use displayid::DisplayIdCapabilities;
 pub mod capabilities;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use capabilities::{DisplayCapabilities, ExtensionData, ParseWarning};
-pub use capabilities::{EdidVersion, StereoMode, SyncDefinition, VideoMode};
+pub use capabilities::{EdidVersion, ModeSource, StereoMode, SyncDefinition, VideoMode};
 pub use transfer::TransferPointEncoding;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use transfer::{DisplayIdTransferCharacteristic, TransferCurve};

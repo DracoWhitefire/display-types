@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ModeSource` — enum recording the source from which a `VideoMode` was decoded:
+  `Vic(u8)` for CTA-861 Video Identification Codes, `DmtId(u16)` for VESA DMT table
+  entries, and `DtdIndex(u8)` for Detailed Timing Descriptors (zero-based index within
+  the containing EDID block). Marked `#[non_exhaustive]`.
+- `VideoMode::source: Option<ModeSource>` — populated automatically by `vic_to_mode` and
+  `dmt_to_mode`; parsers decoding DTDs should set it via `with_source`. `None` for modes
+  constructed directly via `VideoMode::new`. Preserves the identifier that was silently
+  dropped before, enabling reliable KMS mode correlation and per-mode capability checks
+  (e.g. CTA Y420 VDB / CMDB).
+- `VideoMode::with_source(ModeSource) -> Self` — builder for setting the source, consistent
+  with `with_pixel_clock` and `with_detailed_timing`.
 - `VideoMode::with_pixel_clock(pixel_clock_khz: u32) -> Self` — builder that sets the exact
   pixel clock in kHz, bypassing the CVT-RB fallback in `pixel_clock_khz()`. Intended for
   firmware and embedded callers that have the exact clock from a hardware PLL or timing

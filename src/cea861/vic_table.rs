@@ -1,4 +1,4 @@
-use crate::{StereoMode, SyncDefinition, VideoMode};
+use crate::{ModeSource, StereoMode, SyncDefinition, VideoMode};
 
 /// Returns the [`VideoMode`] for the given CEA-861-E Video Identification Code (VIC),
 /// or `None` if the VIC is not in the table (valid range: 1–64).
@@ -231,20 +231,24 @@ pub fn vic_to_mode(vic: u8) -> Option<VideoMode> {
         _ => return None,
     };
 
-    Some(VideoMode::new(w, h, r, interlaced).with_detailed_timing(
-        pixel_clock_khz,
-        hfp,
-        hsw,
-        vfp,
-        vsw,
-        0,
-        0,
-        StereoMode::None,
-        Some(SyncDefinition::DigitalSeparate {
-            v_sync_positive: vpos,
-            h_sync_positive: hpos,
-        }),
-    ))
+    Some(
+        VideoMode::new(w, h, r, interlaced)
+            .with_detailed_timing(
+                pixel_clock_khz,
+                hfp,
+                hsw,
+                vfp,
+                vsw,
+                0,
+                0,
+                StereoMode::None,
+                Some(SyncDefinition::DigitalSeparate {
+                    v_sync_positive: vpos,
+                    h_sync_positive: hpos,
+                }),
+            )
+            .with_source(ModeSource::Vic(vic)),
+    )
 }
 
 #[cfg(test)]
@@ -263,6 +267,7 @@ mod tests {
         assert_eq!(mode.v_front_porch, 10);
         assert_eq!(mode.v_sync_width, 2);
         assert_eq!(mode.pixel_clock_khz, Some(25175));
+        assert_eq!(mode.source, Some(ModeSource::Vic(1)));
     }
 
     #[test]
@@ -355,7 +360,16 @@ mod tests {
 
     #[test]
     fn test_vic103_aliases_93() {
-        assert_eq!(vic_to_mode(93), vic_to_mode(103));
+        // VIC 103 is an alias for VIC 93 (same timing parameters, different VIC number).
+        // The two modes are identical in every field except `source`.
+        let m93 = vic_to_mode(93).unwrap();
+        let m103 = vic_to_mode(103).unwrap();
+        assert_eq!(m93.width, m103.width);
+        assert_eq!(m93.height, m103.height);
+        assert_eq!(m93.refresh_rate, m103.refresh_rate);
+        assert_eq!(m93.pixel_clock_khz, m103.pixel_clock_khz);
+        assert_eq!(m93.source, Some(ModeSource::Vic(93)));
+        assert_eq!(m103.source, Some(ModeSource::Vic(103)));
     }
 
     #[test]
