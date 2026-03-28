@@ -76,6 +76,25 @@ pub enum SyncDefinition {
     },
 }
 
+/// The source from which a [`VideoMode`] was decoded.
+///
+/// Populated automatically by [`vic_to_mode`][crate::cea861::vic_to_mode] and
+/// [`dmt_to_mode`][crate::cea861::dmt_to_mode]; parsers that decode Detailed Timing
+/// Descriptors should set it via [`VideoMode::with_source`]. `None` for modes
+/// constructed directly via [`VideoMode::new`].
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModeSource {
+    /// A CTA-861 Video Identification Code, as used in Short Video Descriptors,
+    /// the Y420 Video Data Block, and the Y420 Capability Map Data Block.
+    Vic(u8),
+    /// A VESA Display Monitor Timings identifier (0x01–0x58).
+    DmtId(u16),
+    /// Zero-based index of a Detailed Timing Descriptor within its containing EDID block.
+    DtdIndex(u8),
+}
+
 /// A display video mode expressed as resolution, refresh rate, and scan type.
 ///
 /// Use [`VideoMode::new`] to construct a mode with only identity fields (the common case
@@ -91,7 +110,7 @@ pub struct VideoMode {
     /// Vertical resolution in pixels.
     pub height: u16,
     /// Refresh rate in Hz.
-    pub refresh_rate: u8,
+    pub refresh_rate: u16,
     /// `true` for interlaced modes; `false` for progressive (the common case).
     pub interlaced: bool,
     /// Horizontal front porch in pixels (0 when not decoded from a DTD).
@@ -112,6 +131,10 @@ pub struct VideoMode {
     pub sync: Option<SyncDefinition>,
     /// Pixel clock in kHz (`None` for modes not decoded from a Detailed Timing Descriptor).
     pub pixel_clock_khz: Option<u32>,
+    /// The source from which this mode was decoded, if known.
+    ///
+    /// `None` for modes constructed directly via [`VideoMode::new`] without a table lookup.
+    pub source: Option<ModeSource>,
 }
 
 impl VideoMode {
@@ -122,7 +145,7 @@ impl VideoMode {
     /// [`StereoMode::None`], and `sync` defaults to `None`. Use
     /// [`with_detailed_timing`][Self::with_detailed_timing] to set those fields when
     /// decoding from a Detailed Timing Descriptor.
-    pub fn new(width: u16, height: u16, refresh_rate: u8, interlaced: bool) -> Self {
+    pub fn new(width: u16, height: u16, refresh_rate: u16, interlaced: bool) -> Self {
         Self {
             width,
             height,
@@ -130,6 +153,38 @@ impl VideoMode {
             interlaced,
             ..Self::default()
         }
+    }
+
+    /// Sets the exact pixel clock in kHz, returning the updated mode.
+    ///
+    /// Use this when constructing a [`VideoMode`] from hardware timing registers or a
+    /// known-good mode table entry, where the exact pixel clock is available but full
+    /// Detailed Timing Descriptor fields are not. The supplied clock is returned verbatim
+    /// by [`pixel_clock_khz`][crate::pixel_clock_khz], bypassing the CVT-RB fallback
+    /// estimate.
+    ///
+    /// ```
+    /// use display_types::VideoMode;
+    /// use display_types::pixel_clock_khz;
+    ///
+    /// // Custom panel: 1920×1200 @ 60 Hz, exact pixel clock from PLL register.
+    /// let mode = VideoMode::new(1920, 1200, 60, false).with_pixel_clock(154_000);
+    /// assert_eq!(pixel_clock_khz(&mode), 154_000);
+    /// ```
+    pub fn with_pixel_clock(mut self, pixel_clock_khz: u32) -> Self {
+        self.pixel_clock_khz = Some(pixel_clock_khz);
+        self
+    }
+
+    /// Sets the mode source, returning the updated mode.
+    ///
+    /// Called automatically by [`vic_to_mode`][crate::cea861::vic_to_mode] and
+    /// [`dmt_to_mode`][crate::cea861::dmt_to_mode]. Parsers decoding Detailed Timing
+    /// Descriptors should call `.with_source(ModeSource::DtdIndex(n))` so that the
+    /// descriptor's position survives into negotiated output.
+    pub fn with_source(mut self, source: ModeSource) -> Self {
+        self.source = Some(source);
+        self
     }
 
     /// Adds blanking-interval and signal fields decoded from a Detailed Timing Descriptor
