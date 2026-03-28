@@ -116,3 +116,77 @@ impl core::ops::Deref for MonitorString {
         self.as_str()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[cfg(any(feature = "alloc", feature = "std"))]
+    use crate::alloc::string::ToString;
+
+    // --- ManufacturerId ---
+
+    #[test]
+    fn manufacturer_id_valid_ascii_uppercase() {
+        let id = ManufacturerId::from_ascii(*b"DEL").unwrap();
+        assert_eq!(id.as_str(), "DEL");
+    }
+
+    #[test]
+    fn manufacturer_id_rejects_lowercase() {
+        assert!(ManufacturerId::from_ascii(*b"del").is_none());
+    }
+
+    #[test]
+    fn manufacturer_id_rejects_digit() {
+        assert!(ManufacturerId::from_ascii(*b"D3L").is_none());
+    }
+
+    #[test]
+    #[cfg(any(feature = "alloc", feature = "std"))]
+    fn manufacturer_id_display() {
+        let id = ManufacturerId::from_ascii(*b"SAM").unwrap();
+        assert_eq!(id.to_string(), "SAM");
+    }
+
+    // --- MonitorString ---
+
+    #[test]
+    fn monitor_string_strips_terminator_and_spaces() {
+        let mut buf = [b' '; 13];
+        let name = b"DELL U2722D";
+        buf[..name.len()].copy_from_slice(name);
+        buf[name.len()] = 0x0A;
+        assert_eq!(MonitorString(buf).as_str(), "DELL U2722D");
+    }
+
+    #[test]
+    fn monitor_string_no_terminator_strips_trailing_spaces() {
+        let mut buf = [b' '; 13];
+        buf[..3].copy_from_slice(b"ABC");
+        assert_eq!(MonitorString(buf).as_str(), "ABC");
+    }
+
+    #[test]
+    fn monitor_string_all_padding_gives_empty() {
+        assert_eq!(MonitorString([b' '; 13]).as_str(), "");
+    }
+
+    #[test]
+    fn monitor_string_deref() {
+        let mut buf = [b' '; 13];
+        buf[..3].copy_from_slice(b"LEN");
+        buf[3] = 0x0A;
+        let ms = MonitorString(buf);
+        let s: &str = &ms;
+        assert_eq!(s, "LEN");
+    }
+
+    #[test]
+    #[cfg(any(feature = "alloc", feature = "std"))]
+    fn monitor_string_display() {
+        let mut buf = [b' '; 13];
+        buf[..3].copy_from_slice(b"GSM");
+        buf[3] = 0x0A;
+        assert_eq!(MonitorString(buf).to_string(), "GSM");
+    }
+}

@@ -61,3 +61,44 @@ impl ResolvedDisplayConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ColorBitDepth, ColorFormat, VideoMode};
+
+    #[test]
+    fn new_roundtrips_all_fields() {
+        let mode = VideoMode::new(3840, 2160, 60, false);
+        let cfg = ResolvedDisplayConfig::new(
+            mode.clone(),
+            ColorFormat::Rgb444,
+            ColorBitDepth::Depth10,
+            HdmiForumFrl::Rate10Gbps4Lanes,
+            true,
+            false,
+        );
+        assert_eq!(cfg.mode, mode);
+        assert_eq!(cfg.color_encoding, ColorFormat::Rgb444);
+        assert_eq!(cfg.bit_depth, ColorBitDepth::Depth10);
+        assert_eq!(cfg.frl_rate, HdmiForumFrl::Rate10Gbps4Lanes);
+        assert!(cfg.dsc_required);
+        assert!(!cfg.vrr_applicable);
+    }
+
+    #[test]
+    fn tmds_config_uses_not_supported_frl() {
+        let mode = VideoMode::new(1920, 1080, 60, false);
+        let cfg = ResolvedDisplayConfig::new(
+            mode,
+            ColorFormat::Rgb444,
+            ColorBitDepth::Depth8,
+            HdmiForumFrl::NotSupported,
+            false,
+            true,
+        );
+        assert_eq!(cfg.frl_rate, HdmiForumFrl::NotSupported);
+        assert!(cfg.vrr_applicable);
+        assert!(!cfg.dsc_required);
+    }
+}
