@@ -7,11 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `VideoMode::with_pixel_clock(pixel_clock_khz: u32) -> Self` — builder that sets the exact
+  pixel clock in kHz, bypassing the CVT-RB fallback in `pixel_clock_khz()`. Intended for
+  firmware and embedded callers that have the exact clock from a hardware PLL or timing
+  register but do not have full Detailed Timing Descriptor fields. Chain after
+  `VideoMode::new`: `VideoMode::new(w, h, r, i).with_pixel_clock(clk)`.
+
 ### Breaking changes
 
 - `pixel_clock_khz_cvt_rb_estimate` was renamed to `pixel_clock_khz` to avoid the suggestion that it always estimates.
 - `VideoMode::refresh_rate` is now `u16` (was `u8`). The `VideoMode::new` constructor signature changes accordingly.
- Values previously clamped to 255 now reflect the true encoded rate; 360 Hz panels and the 256 Hz maximum of DisplayID 
+ Values previously clamped to 255 now reflect the true encoded rate; 360 Hz panels and the 256 Hz maximum of DisplayID
  Type V descriptors are represented correctly.
 
 ## [0.2.2] - 2026-03-24

@@ -132,6 +132,27 @@ impl VideoMode {
         }
     }
 
+    /// Sets the exact pixel clock in kHz, returning the updated mode.
+    ///
+    /// Use this when constructing a [`VideoMode`] from hardware timing registers or a
+    /// known-good mode table entry, where the exact pixel clock is available but full
+    /// Detailed Timing Descriptor fields are not. The supplied clock is returned verbatim
+    /// by [`pixel_clock_khz`][crate::pixel_clock_khz], bypassing the CVT-RB fallback
+    /// estimate.
+    ///
+    /// ```
+    /// use display_types::VideoMode;
+    /// use display_types::pixel_clock_khz;
+    ///
+    /// // Custom panel: 1920×1200 @ 60 Hz, exact pixel clock from PLL register.
+    /// let mode = VideoMode::new(1920, 1200, 60, false).with_pixel_clock(154_000);
+    /// assert_eq!(pixel_clock_khz(&mode), 154_000);
+    /// ```
+    pub fn with_pixel_clock(mut self, pixel_clock_khz: u32) -> Self {
+        self.pixel_clock_khz = Some(pixel_clock_khz);
+        self
+    }
+
     /// Adds blanking-interval and signal fields decoded from a Detailed Timing Descriptor
     /// or equivalent source, returning the updated mode.
     ///

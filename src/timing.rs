@@ -55,6 +55,12 @@ mod tests {
     }
 
     #[test]
+    fn with_pixel_clock_bypasses_estimate() {
+        let mode = VideoMode::new(1920, 1200, 60, false).with_pixel_clock(154_000);
+        assert_eq!(pixel_clock_khz(&mode), 154_000);
+    }
+
+    #[test]
     fn non_dtd_mode_uses_cvt_rb_formula() {
         // 1920×1080@60: (1920+160) × (1080+8) × 60 / 1000 = 135_782
         let mode = VideoMode::new(1920, 1080, 60, false);
