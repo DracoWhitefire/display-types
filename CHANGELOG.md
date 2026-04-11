@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `HdmiForumFrl` re-exported at the crate root (`display_types::HdmiForumFrl`) for
   convenience alongside `ColorFormat`, `ColorBitDepth`, and the other negotiation types;
   previously only accessible as `display_types::cea861::HdmiForumFrl`.
+- **Dependency audit pipeline** - dependencies get checked on cargo manifest changes.
 
 ## [0.3.0] - 2026-03-25
 
