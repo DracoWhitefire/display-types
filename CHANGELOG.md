@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ChromaticityPoint12` — 12-bit fixed-point chromaticity coordinate pair for DisplayID 2.x
+  block 0x21. Accessor methods `x()` and `y()` normalise to `[0.0, 1.0)` by dividing by 4096.
+- `Chromaticity12` — four `ChromaticityPoint12` values (three primaries and white point).
+- `DisplayParamsV2` — display parameters from 2.x block 0x21: factory-calibrated chromaticity,
+  IEEE 754 half-precision luminance (max full/10%, min as `Option<f32>`), color bit depth,
+  display technology, gamma EOTF, scan orientation, and audio jack flag.
+- `DynamicTimingRange` — dynamic timing range from 2.x block 0x25: min/max pixel clock in kHz
+  (3-byte LE, 1 kHz resolution), min/max vertical refresh rate in Hz (9-bit), VRR support flag.
+- `DisplayInterfaceFeatures` — interface features from 2.x block 0x26: per-encoding color depth
+  bitmasks (RGB, YCbCr 4:4:4/4:2:2/4:2:0), minimum 4:2:0 pixel rate, audio flags, and color
+  space/EOTF combination bitmask.
+- `DisplayIdCapabilities` gains five new `Option` fields: `manufacturer_oui: Option<[u8; 3]>`,
+  `display_params_v2: Option<DisplayParamsV2>`, `dynamic_timing_range: Option<DynamicTimingRange>`,
+  `interface_features: Option<DisplayInterfaceFeatures>`, `container_id: Option<[u8; 16]>`.
+  All default to `None`; `new()` initialises them accordingly.
+- `tag` module: V2 tag constants `V2_PRODUCT_ID` (0x20) through `V2_CONTAINER_ID` (0x29),
+  `V2_VENDOR_SPECIFIC` (0x7E), and `V2_CTA_DISPLAYID` (0x81).
+
 ### Internal
 
 - Fixed coverage ratchet CI: added `LC_NUMERIC=C` to the baseline `printf` to prevent
