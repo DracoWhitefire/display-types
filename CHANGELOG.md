@@ -10,25 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `RefreshRate` — exact rational refresh rate type replacing `VideoMode::refresh_rate: u16`.
-  Stored as `(numer: u32, denom: u32)` in lowest terms. Constructors: `integral(hz: u32)` and
-  `fractional(numer, denom)`. Implements `Ord` via cross-multiplication, `Display` as
-  `"60 Hz"` / `"60000/1001 Hz"`, and `From<u32>` / `From<u16>` for ergonomic construction.
-  `as_f64()` returns the normalised value.
-
-### Breaking changes
-
-- `VideoMode::refresh_rate` changed from `u16` to `RefreshRate`. `VideoMode::new` now accepts
-  `impl Into<RefreshRate>` for the refresh rate parameter, so integer literals require a `u32`
-  suffix (e.g. `60u32`) or explicit `RefreshRate::integral(60)`.
-- DMT 0x58 (4096×2160) is now stored as `RefreshRate::fractional(60000, 1001)` (≈ 59.94 Hz)
-  rather than the truncated `60`.
-- `DisplayIdCapabilities` no longer derives `Eq` (only `PartialEq`). The new
-  `display_params_v2: Option<DisplayParamsV2>` field contains `Option<f32>` luminance values,
-  which are `PartialEq` but not `Eq`. Downstream code that required `Eq`
-  (e.g. `HashSet<DisplayIdCapabilities>`, trait bounds) must switch to `PartialEq`.
-
-### Added
-
+  Stored as `(numer: u32, denom: u32)` in lowest terms (fields private; use `numer()` /
+  `denom()` accessors). Constructors: `integral(hz: u32)` and `fractional(numer, denom)`;
+  `Deserialize` also reduces via `fractional`. Implements `Ord` via cross-multiplication,
+  `Display` as `"60 Hz"` / `"60000/1001 Hz"`, and `From<u32>` / `From<u16>` for ergonomic
+  construction. `as_f64()` returns the normalised value.
 - `ChromaticityPoint12` — 12-bit fixed-point chromaticity coordinate pair for DisplayID 2.x
   block 0x21. Accessor methods `x()` and `y()` normalise to `[0.0, 1.0)` by dividing by 4096.
 - `Chromaticity12` — four `ChromaticityPoint12` values (three primaries and white point).
@@ -46,6 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   All default to `None`; `new()` initialises them accordingly.
 - `tag` module: V2 tag constants `V2_PRODUCT_ID` (0x20) through `V2_CONTAINER_ID` (0x29),
   `V2_VENDOR_SPECIFIC` (0x7E), and `V2_CTA_DISPLAYID` (0x81).
+
+### Breaking changes
+
+- `VideoMode::refresh_rate` changed from `u16` to `RefreshRate`. `VideoMode::new` now accepts
+  `impl Into<RefreshRate>` for the refresh rate parameter, so integer literals require a `u32`
+  suffix (e.g. `60u32`) or explicit `RefreshRate::integral(60)`.
+- DMT 0x58 (4096×2160) is now stored as `RefreshRate::fractional(60000, 1001)` (≈ 59.94 Hz)
+  rather than the truncated `60`.
+- `DisplayIdCapabilities` no longer derives `Eq` (only `PartialEq`). The new
+  `display_params_v2: Option<DisplayParamsV2>` field contains `Option<f32>` luminance values,
+  which are `PartialEq` but not `Eq`. Downstream code that required `Eq`
+  (e.g. `HashSet<DisplayIdCapabilities>`, trait bounds) must switch to `PartialEq`.
 
 ### Internal
 
