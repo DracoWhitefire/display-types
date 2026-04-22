@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   suffix (e.g. `60u32`) or explicit `RefreshRate::integral(60)`.
 - DMT 0x58 (4096×2160) is now stored as `RefreshRate::fractional(60000, 1001)` (≈ 59.94 Hz)
   rather than the truncated `60`.
+- `DisplayIdCapabilities` no longer derives `Eq` (only `PartialEq`). The new
+  `display_params_v2: Option<DisplayParamsV2>` field contains `Option<f32>` luminance values,
+  which are `PartialEq` but not `Eq`. Downstream code that required `Eq`
+  (e.g. `HashSet<DisplayIdCapabilities>`, trait bounds) must switch to `PartialEq`.
 
 ### Added
 
