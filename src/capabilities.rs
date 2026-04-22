@@ -100,19 +100,51 @@ pub enum ModeSource {
 /// Integer rates (60 Hz, 120 Hz, etc.) use `denom = 1`. NTSC-derived fractional rates use
 /// `denom = 1001` (e.g. 60000/1001 ≈ 59.94 Hz, 24000/1001 ≈ 23.976 Hz).
 ///
-/// Stored in lowest terms: both constructors apply GCD reduction so that `==` and `Ord`
-/// comparisons are correct without cross-multiplication.
+/// Always stored in lowest terms: all constructors (including `Deserialize`) apply GCD
+/// reduction, so `==`, `Hash`, and `Ord` are consistent and a given rate has exactly one
+/// canonical representation.
 ///
 /// Use [`RefreshRate::integral`] for integer rates and [`RefreshRate::fractional`] for all
 /// others. `From<u32>` and `From<u16>` are implemented as `integral` conversions, so
 /// integer literals work wherever `impl Into<RefreshRate>` is accepted.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, Eq)]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RefreshRateRepr", into = "RefreshRateRepr")
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RefreshRate {
-    /// Numerator in Hz.
-    pub numer: u32,
-    /// Denominator (1 for integer rates, 1001 for NTSC-derived fractional rates, etc.).
-    pub denom: u32,
+    numer: u32,
+    denom: u32,
+}
+
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+struct RefreshRateRepr {
+    numer: u32,
+    denom: u32,
+}
+
+#[cfg(feature = "serde")]
+impl core::convert::TryFrom<RefreshRateRepr> for RefreshRate {
+    type Error = &'static str;
+    fn try_from(r: RefreshRateRepr) -> Result<Self, Self::Error> {
+        if r.denom == 0 {
+            Err("RefreshRate denominator must not be zero")
+        } else {
+            Ok(Self::fractional(r.numer, r.denom))
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<RefreshRate> for RefreshRateRepr {
+    fn from(r: RefreshRate) -> Self {
+        Self {
+            numer: r.numer,
+            denom: r.denom,
+        }
+    }
 }
 
 fn gcd(mut a: u32, mut b: u32) -> u32 {
@@ -147,6 +179,16 @@ impl RefreshRate {
         }
     }
 
+    /// Numerator of the reduced fraction, in Hz.
+    pub fn numer(self) -> u32 {
+        self.numer
+    }
+
+    /// Denominator of the reduced fraction (1 for integer rates, 1001 for NTSC-derived rates).
+    pub fn denom(self) -> u32 {
+        self.denom
+    }
+
     /// Returns the refresh rate as `f64`.
     pub fn as_f64(self) -> f64 {
         self.numer as f64 / self.denom as f64
@@ -156,12 +198,6 @@ impl RefreshRate {
 impl Default for RefreshRate {
     fn default() -> Self {
         Self::integral(0)
-    }
-}
-
-impl PartialEq for RefreshRate {
-    fn eq(&self, other: &Self) -> bool {
-        self.numer == other.numer && self.denom == other.denom
     }
 }
 
