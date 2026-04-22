@@ -1,4 +1,4 @@
-use crate::{ModeSource, StereoMode, SyncDefinition, VideoMode};
+use crate::{ModeSource, RefreshRate, StereoMode, SyncDefinition, VideoMode};
 
 /// Look up a VESA DMT ID and return the corresponding `VideoMode`, or `None`
 /// if the ID is not in the standard table.
@@ -9,8 +9,7 @@ use crate::{ModeSource, StereoMode, SyncDefinition, VideoMode};
 /// When two DMT IDs share the same resolution and refresh rate (one Reduced
 /// Blanking variant, one standard), both map to distinct `VideoMode` values with
 /// different timing parameters. The interlaced 1024×768@43 Hz entry (0x0F) is
-/// included; 0x58 (4096×2160 @ 59.94 Hz) is stored as 60 Hz because `VideoMode`
-/// uses integer refresh rates.
+/// included; 0x58 (4096×2160 @ 59.94 Hz) is stored as 60000/1001 Hz.
 pub fn dmt_to_mode(id: u16) -> Option<VideoMode> {
     // Columns: width, height, refresh_rate, interlaced,
     //          h_front_porch, h_sync_width, v_front_porch, v_sync_width,
@@ -19,7 +18,7 @@ pub fn dmt_to_mode(id: u16) -> Option<VideoMode> {
         ($w:expr, $h:expr, $rr:expr, $i:expr,
          $hfp:expr, $hsw:expr, $vfp:expr, $vsw:expr,
          $hp:expr, $vp:expr, $pc:expr) => {
-            VideoMode::new($w, $h, $rr, $i).with_detailed_timing(
+            VideoMode::new($w, $h, $rr as u32, $i).with_detailed_timing(
                 $pc,
                 $hfp,
                 $hsw,
@@ -148,7 +147,21 @@ pub fn dmt_to_mode(id: u16) -> Option<VideoMode> {
         0x55 => e!(1280, 720, 60, false, 110, 40, 5, 5, true, true, 74250),
         0x56 => e!(1366, 768, 60, false, 14, 56, 1, 3, true, true, 72000),
         0x57 => e!(4096, 2160, 60, false, 8, 32, 48, 8, true, true, 556744),
-        0x58 => e!(4096, 2160, 60, false, 8, 32, 48, 8, true, true, 556188), // 59.94 Hz, stored as 60
+        0x58 => VideoMode::new(4096, 2160, RefreshRate::fractional(60000, 1001), false)
+            .with_detailed_timing(
+                556188,
+                8,
+                32,
+                48,
+                8,
+                0,
+                0,
+                StereoMode::None,
+                Some(SyncDefinition::DigitalSeparate {
+                    h_sync_positive: true,
+                    v_sync_positive: true,
+                }),
+            ),
         _ => return None,
     };
     Some(mode.with_source(ModeSource::DmtId(id)))

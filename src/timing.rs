@@ -11,7 +11,7 @@ use crate::VideoMode;
 /// - **Vertical blanking:** 8 lines (minimum RB frame-height adjustment).
 ///
 /// ```text
-/// pixel_clock_khz ≈ (width + 160) × (height + 8) × refresh_rate_hz / 1000
+/// pixel_clock_khz ≈ (width + 160) × (height + 8) × refresh_rate / 1000
 /// ```
 ///
 /// # Accuracy of the fallback estimate
@@ -28,9 +28,9 @@ pub fn pixel_clock_khz(mode: &VideoMode) -> u32 {
     if let Some(clk) = mode.pixel_clock_khz {
         return clk;
     }
-    let h_total = mode.width as u64 + 160;
-    let v_total = mode.height as u64 + 8;
-    (h_total * v_total * mode.refresh_rate as u64 / 1000) as u32
+    let h_total = mode.width as f64 + 160.0;
+    let v_total = mode.height as f64 + 8.0;
+    (h_total * v_total * mode.refresh_rate.as_f64() / 1000.0) as u32
 }
 
 #[cfg(test)]
@@ -40,7 +40,7 @@ mod tests {
 
     #[test]
     fn exact_clock_returned_unchanged() {
-        let mode = VideoMode::new(1920, 1080, 60, false).with_detailed_timing(
+        let mode = VideoMode::new(1920, 1080, 60u32, false).with_detailed_timing(
             148_500,
             88,
             44,
@@ -56,20 +56,20 @@ mod tests {
 
     #[test]
     fn with_pixel_clock_bypasses_estimate() {
-        let mode = VideoMode::new(1920, 1200, 60, false).with_pixel_clock(154_000);
+        let mode = VideoMode::new(1920, 1200, 60u32, false).with_pixel_clock(154_000);
         assert_eq!(pixel_clock_khz(&mode), 154_000);
     }
 
     #[test]
     fn non_dtd_mode_uses_cvt_rb_formula() {
         // 1920×1080@60: (1920+160) × (1080+8) × 60 / 1000 = 135_782
-        let mode = VideoMode::new(1920, 1080, 60, false);
+        let mode = VideoMode::new(1920, 1080, 60u32, false);
         assert_eq!(pixel_clock_khz(&mode), 135_782);
     }
 
     #[test]
     fn zero_refresh_rate_returns_zero() {
-        let mode = VideoMode::new(1920, 1080, 0, false);
+        let mode = VideoMode::new(1920, 1080, 0u32, false);
         assert_eq!(pixel_clock_khz(&mode), 0);
     }
 }

@@ -254,13 +254,14 @@ pub fn vic_to_mode(vic: u8) -> Option<VideoMode> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::RefreshRate;
 
     #[test]
     fn test_vic1_640x480p60() {
         let mode = vic_to_mode(1).unwrap();
         assert_eq!(mode.width, 640);
         assert_eq!(mode.height, 480);
-        assert_eq!(mode.refresh_rate, 60);
+        assert_eq!(mode.refresh_rate, RefreshRate::integral(60));
         assert!(!mode.interlaced);
         assert_eq!(mode.h_front_porch, 16);
         assert_eq!(mode.h_sync_width, 96);
@@ -275,7 +276,7 @@ mod tests {
         let mode = vic_to_mode(16).unwrap();
         assert_eq!(mode.width, 1920);
         assert_eq!(mode.height, 1080);
-        assert_eq!(mode.refresh_rate, 60);
+        assert_eq!(mode.refresh_rate, RefreshRate::integral(60));
         assert!(!mode.interlaced);
         assert!(matches!(
             mode.sync,
@@ -292,7 +293,7 @@ mod tests {
         let mode = vic_to_mode(5).unwrap();
         assert_eq!(mode.width, 1920);
         assert_eq!(mode.height, 1080);
-        assert_eq!(mode.refresh_rate, 60);
+        assert_eq!(mode.refresh_rate, RefreshRate::integral(60));
         assert!(mode.interlaced);
         assert_eq!(mode.pixel_clock_khz, Some(74250));
     }
@@ -302,7 +303,7 @@ mod tests {
         let mode = vic_to_mode(63).unwrap();
         assert_eq!(mode.width, 1920);
         assert_eq!(mode.height, 1080);
-        assert_eq!(mode.refresh_rate, 120);
+        assert_eq!(mode.refresh_rate, RefreshRate::integral(120));
         assert!(!mode.interlaced);
         assert_eq!(mode.pixel_clock_khz, Some(297000));
     }
@@ -343,7 +344,7 @@ mod tests {
         let mode = vic_to_mode(93).unwrap();
         assert_eq!(mode.width, 3840);
         assert_eq!(mode.height, 2160);
-        assert_eq!(mode.refresh_rate, 24);
+        assert_eq!(mode.refresh_rate, RefreshRate::integral(24));
         assert!(!mode.interlaced);
         assert_eq!(mode.pixel_clock_khz, Some(297000));
     }
@@ -353,7 +354,7 @@ mod tests {
         let mode = vic_to_mode(97).unwrap();
         assert_eq!(mode.width, 3840);
         assert_eq!(mode.height, 2160);
-        assert_eq!(mode.refresh_rate, 60);
+        assert_eq!(mode.refresh_rate, RefreshRate::integral(60));
         assert!(!mode.interlaced);
         assert_eq!(mode.pixel_clock_khz, Some(594000));
     }
@@ -377,7 +378,7 @@ mod tests {
         let mode = vic_to_mode(217).unwrap();
         assert_eq!(mode.width, 10240);
         assert_eq!(mode.height, 4320);
-        assert_eq!(mode.refresh_rate, 120);
+        assert_eq!(mode.refresh_rate, RefreshRate::integral(120));
         assert_eq!(mode.pixel_clock_khz, Some(5940000));
     }
 }

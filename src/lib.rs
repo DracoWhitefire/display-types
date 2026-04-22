@@ -81,7 +81,9 @@ pub use displayid::DisplayIdCapabilities;
 pub mod capabilities;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use capabilities::{DisplayCapabilities, ExtensionData, ParseWarning};
-pub use capabilities::{EdidVersion, ModeSource, StereoMode, SyncDefinition, VideoMode};
+pub use capabilities::{
+    EdidVersion, ModeSource, RefreshRate, StereoMode, SyncDefinition, VideoMode,
+};
 pub use cea861::HdmiForumFrl;
 pub use transfer::TransferPointEncoding;
 #[cfg(any(feature = "alloc", feature = "std"))]

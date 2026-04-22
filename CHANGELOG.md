@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `RefreshRate` — exact rational refresh rate type replacing `VideoMode::refresh_rate: u16`.
+  Stored as `(numer: u32, denom: u32)` in lowest terms. Constructors: `integral(hz: u32)` and
+  `fractional(numer, denom)`. Implements `Ord` via cross-multiplication, `Display` as
+  `"60 Hz"` / `"60000/1001 Hz"`, and `From<u32>` / `From<u16>` for ergonomic construction.
+  `as_f64()` returns the normalised value.
+
+### Breaking changes
+
+- `VideoMode::refresh_rate` changed from `u16` to `RefreshRate`. `VideoMode::new` now accepts
+  `impl Into<RefreshRate>` for the refresh rate parameter, so integer literals require a `u32`
+  suffix (e.g. `60u32`) or explicit `RefreshRate::integral(60)`.
+- DMT 0x58 (4096×2160) is now stored as `RefreshRate::fractional(60000, 1001)` (≈ 59.94 Hz)
+  rather than the truncated `60`.
+
+### Added
+
 - `ChromaticityPoint12` — 12-bit fixed-point chromaticity coordinate pair for DisplayID 2.x
   block 0x21. Accessor methods `x()` and `y()` normalise to `[0.0, 1.0)` by dividing by 4096.
 - `Chromaticity12` — four `ChromaticityPoint12` values (three primaries and white point).

@@ -95,6 +95,110 @@ pub enum ModeSource {
     DtdIndex(u8),
 }
 
+/// A display refresh rate expressed as an exact rational number (numerator/denominator in Hz).
+///
+/// Integer rates (60 Hz, 120 Hz, etc.) use `denom = 1`. NTSC-derived fractional rates use
+/// `denom = 1001` (e.g. 60000/1001 ≈ 59.94 Hz, 24000/1001 ≈ 23.976 Hz).
+///
+/// Stored in lowest terms: both constructors apply GCD reduction so that `==` and `Ord`
+/// comparisons are correct without cross-multiplication.
+///
+/// Use [`RefreshRate::integral`] for integer rates and [`RefreshRate::fractional`] for all
+/// others. `From<u32>` and `From<u16>` are implemented as `integral` conversions, so
+/// integer literals work wherever `impl Into<RefreshRate>` is accepted.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, Eq)]
+pub struct RefreshRate {
+    /// Numerator in Hz.
+    pub numer: u32,
+    /// Denominator (1 for integer rates, 1001 for NTSC-derived fractional rates, etc.).
+    pub denom: u32,
+}
+
+fn gcd(mut a: u32, mut b: u32) -> u32 {
+    while b != 0 {
+        let t = b;
+        b = a % b;
+        a = t;
+    }
+    a
+}
+
+impl RefreshRate {
+    /// Constructs an integer refresh rate (e.g. `RefreshRate::integral(60)` → 60/1).
+    pub fn integral(hz: u32) -> Self {
+        Self {
+            numer: hz,
+            denom: 1,
+        }
+    }
+
+    /// Constructs an exact rational refresh rate, reduced to lowest terms.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `denom` is zero.
+    pub fn fractional(numer: u32, denom: u32) -> Self {
+        assert!(denom != 0, "RefreshRate denominator must not be zero");
+        let g = gcd(numer, denom);
+        Self {
+            numer: numer / g,
+            denom: denom / g,
+        }
+    }
+
+    /// Returns the refresh rate as `f64`.
+    pub fn as_f64(self) -> f64 {
+        self.numer as f64 / self.denom as f64
+    }
+}
+
+impl Default for RefreshRate {
+    fn default() -> Self {
+        Self::integral(0)
+    }
+}
+
+impl PartialEq for RefreshRate {
+    fn eq(&self, other: &Self) -> bool {
+        self.numer == other.numer && self.denom == other.denom
+    }
+}
+
+impl PartialOrd for RefreshRate {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl core::cmp::Ord for RefreshRate {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        (self.numer as u64 * other.denom as u64).cmp(&(other.numer as u64 * self.denom as u64))
+    }
+}
+
+impl core::fmt::Display for RefreshRate {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.denom == 1 {
+            write!(f, "{} Hz", self.numer)
+        } else {
+            write!(f, "{}/{} Hz", self.numer, self.denom)
+        }
+    }
+}
+
+impl From<u32> for RefreshRate {
+    fn from(hz: u32) -> Self {
+        Self::integral(hz)
+    }
+}
+
+impl From<u16> for RefreshRate {
+    fn from(hz: u16) -> Self {
+        Self::integral(hz as u32)
+    }
+}
+
 /// A display video mode expressed as resolution, refresh rate, and scan type.
 ///
 /// Use [`VideoMode::new`] to construct a mode with only identity fields (the common case
@@ -109,8 +213,8 @@ pub struct VideoMode {
     pub width: u16,
     /// Vertical resolution in pixels.
     pub height: u16,
-    /// Refresh rate in Hz.
-    pub refresh_rate: u16,
+    /// Refresh rate as an exact rational number in Hz.
+    pub refresh_rate: RefreshRate,
     /// `true` for interlaced modes; `false` for progressive (the common case).
     pub interlaced: bool,
     /// Horizontal front porch in pixels (0 when not decoded from a DTD).
@@ -145,11 +249,16 @@ impl VideoMode {
     /// [`StereoMode::None`], and `sync` defaults to `None`. Use
     /// [`with_detailed_timing`][Self::with_detailed_timing] to set those fields when
     /// decoding from a Detailed Timing Descriptor.
-    pub fn new(width: u16, height: u16, refresh_rate: u16, interlaced: bool) -> Self {
+    pub fn new(
+        width: u16,
+        height: u16,
+        refresh_rate: impl Into<RefreshRate>,
+        interlaced: bool,
+    ) -> Self {
         Self {
             width,
             height,
-            refresh_rate,
+            refresh_rate: refresh_rate.into(),
             interlaced,
             ..Self::default()
         }
@@ -168,7 +277,7 @@ impl VideoMode {
     /// use display_types::pixel_clock_khz;
     ///
     /// // Custom panel: 1920×1200 @ 60 Hz, exact pixel clock from PLL register.
-    /// let mode = VideoMode::new(1920, 1200, 60, false).with_pixel_clock(154_000);
+    /// let mode = VideoMode::new(1920, 1200, 60u32, false).with_pixel_clock(154_000);
     /// assert_eq!(pixel_clock_khz(&mode), 154_000);
     /// ```
     pub fn with_pixel_clock(mut self, pixel_clock_khz: u32) -> Self {
