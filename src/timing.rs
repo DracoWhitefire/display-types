@@ -28,9 +28,11 @@ pub fn pixel_clock_khz(mode: &VideoMode) -> u32 {
     if let Some(clk) = mode.pixel_clock_khz {
         return clk;
     }
-    let h_total = mode.width as f64 + 160.0;
-    let v_total = mode.height as f64 + 8.0;
-    (h_total * v_total * mode.refresh_rate.as_f64() / 1000.0) as u32
+    let h_total = mode.width as u64 + 160;
+    let v_total = mode.height as u64 + 8;
+    let numer = mode.refresh_rate.numer() as u64;
+    let denom = mode.refresh_rate.denom() as u64;
+    (h_total * v_total * numer / (denom * 1000)) as u32
 }
 
 #[cfg(test)]
