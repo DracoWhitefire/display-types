@@ -73,7 +73,7 @@ pub struct DisplayParamsV2 {
     pub min_luminance: Option<f32>,
     /// `true` if non-zero luminance values are source guidance rather than guaranteed minima.
     pub luminance_guidance: bool,
-    /// Color bit depth per channel (6, 8, 10, 12, or 16). `None` if not defined.
+    /// Color bit depth per channel (6, 8, 10, 12, 14, or 16). `None` if not defined.
     pub color_bit_depth: Option<u8>,
     /// Display technology: `0` = not specified, `1` = AMLCD, `2` = AMOLED.
     pub display_technology: u8,
