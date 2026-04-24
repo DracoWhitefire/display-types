@@ -596,3 +596,85 @@ impl DisplayCapabilities {
             .and_then(|(_, data)| (**data).as_any().downcast_ref::<T>())
     }
 }
+
+#[cfg(test)]
+mod refresh_rate_tests {
+    use super::*;
+
+    #[test]
+    fn integral_has_unit_denominator() {
+        let r = RefreshRate::integral(60);
+        assert_eq!(r.numer(), 60);
+        assert_eq!(r.denom(), 1);
+    }
+
+    #[test]
+    fn fractional_reduces_to_lowest_terms() {
+        let r = RefreshRate::fractional(120, 2);
+        assert_eq!(r.numer(), 60);
+        assert_eq!(r.denom(), 1);
+
+        let ntsc = RefreshRate::fractional(60000, 1001);
+        assert_eq!(ntsc.numer(), 60000);
+        assert_eq!(ntsc.denom(), 1001);
+    }
+
+    #[test]
+    #[should_panic(expected = "RefreshRate denominator must not be zero")]
+    fn fractional_panics_on_zero_denominator() {
+        let _ = RefreshRate::fractional(60, 0);
+    }
+
+    #[test]
+    fn equality_is_canonical() {
+        assert_eq!(RefreshRate::integral(60), RefreshRate::fractional(120, 2));
+        assert_ne!(
+            RefreshRate::integral(60),
+            RefreshRate::fractional(60000, 1001)
+        );
+    }
+
+    #[test]
+    fn ord_uses_cross_multiplication() {
+        let ntsc = RefreshRate::fractional(60000, 1001);
+        let sixty = RefreshRate::integral(60);
+        let fiftynine = RefreshRate::integral(59);
+        assert!(ntsc < sixty);
+        assert!(ntsc > fiftynine);
+        assert_eq!(
+            sixty.cmp(&RefreshRate::fractional(120, 2)),
+            core::cmp::Ordering::Equal
+        );
+    }
+
+    #[test]
+    #[cfg(any(feature = "alloc", feature = "std"))]
+    fn display_formats_integer_and_fractional() {
+        extern crate alloc;
+        use alloc::format;
+        assert_eq!(format!("{}", RefreshRate::integral(60)), "60 Hz");
+        assert_eq!(
+            format!("{}", RefreshRate::fractional(60000, 1001)),
+            "60000/1001 Hz"
+        );
+    }
+
+    #[test]
+    fn default_is_zero_hz() {
+        assert_eq!(RefreshRate::default(), RefreshRate::integral(0));
+    }
+
+    #[test]
+    fn from_integer_uses_integral() {
+        let from_u32: RefreshRate = 144u32.into();
+        let from_u16: RefreshRate = 60u16.into();
+        assert_eq!(from_u32, RefreshRate::integral(144));
+        assert_eq!(from_u16, RefreshRate::integral(60));
+    }
+
+    #[test]
+    fn as_f64_normalises() {
+        let delta = RefreshRate::fractional(60000, 1001).as_f64() - 59.94;
+        assert!(delta.abs() < 0.01);
+    }
+}

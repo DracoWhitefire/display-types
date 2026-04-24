@@ -170,3 +170,32 @@ impl DisplayIdCapabilities {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chromaticity_point_normalises_raw_to_unit_interval() {
+        let white_d65 = ChromaticityPoint12 {
+            x_raw: 1294, // ≈ 0.3158
+            y_raw: 1347, // ≈ 0.3289
+        };
+        assert!((white_d65.x() - 0.31591797).abs() < 1e-6);
+        assert!((white_d65.y() - 0.32885742).abs() < 1e-6);
+    }
+
+    #[test]
+    fn chromaticity_point_endpoints() {
+        let zero = ChromaticityPoint12::default();
+        assert_eq!(zero.x(), 0.0);
+        assert_eq!(zero.y(), 0.0);
+
+        let max = ChromaticityPoint12 {
+            x_raw: 4095,
+            y_raw: 4095,
+        };
+        assert!(max.x() < 1.0);
+        assert!(max.y() < 1.0);
+    }
+}
