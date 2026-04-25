@@ -75,14 +75,113 @@ pub struct DisplayParamsV2 {
     pub luminance_guidance: bool,
     /// Color bit depth per channel (6, 8, 10, 12, 14, or 16). `None` if not defined.
     pub color_bit_depth: Option<u8>,
-    /// Display technology: `0` = not specified, `1` = AMLCD, `2` = AMOLED.
-    pub display_technology: u8,
+    /// Display technology decoded from byte 10 of block 0x21.
+    pub display_technology: DisplayTechnology,
     /// Gamma EOTF in range 1.00–3.54. `None` if unspecified (stored byte `0xFF`).
     pub gamma: Option<f32>,
-    /// Scan orientation (bits 2:0 of byte 11; 0 = left-right, top-bottom).
-    pub scan_orientation: u8,
+    /// Scan orientation decoded from bits 2:0 of byte 11 of block 0x21.
+    pub scan_orientation: ScanOrientation,
     /// `true` if audio output uses an external jack rather than integrated speakers.
     pub audio_external: bool,
+}
+
+/// Display technology family, decoded from byte 10 of DisplayID 2.x block 0x21.
+///
+/// Unknown byte values are preserved via [`DisplayTechnology::Other`] so a spec-defined
+/// future value (e.g. LCoS, microLED) does not make the containing block un-decodable.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DisplayTechnology {
+    /// Not specified (byte value `0x00`).
+    #[default]
+    Unspecified,
+    /// Active-matrix LCD (byte value `0x01`).
+    Amlcd,
+    /// Active-matrix OLED (byte value `0x02`).
+    Amoled,
+    /// Reserved or vendor-specific value the decoder did not recognise.
+    Other(u8),
+}
+
+impl DisplayTechnology {
+    /// Decodes the raw byte 10 value.
+    pub fn from_byte(b: u8) -> Self {
+        match b {
+            0x00 => Self::Unspecified,
+            0x01 => Self::Amlcd,
+            0x02 => Self::Amoled,
+            other => Self::Other(other),
+        }
+    }
+
+    /// Returns the raw byte 10 representation.
+    pub fn as_byte(self) -> u8 {
+        match self {
+            Self::Unspecified => 0x00,
+            Self::Amlcd => 0x01,
+            Self::Amoled => 0x02,
+            Self::Other(b) => b,
+        }
+    }
+}
+
+/// Pixel scan orientation, decoded from bits 2:0 of byte 11 of DisplayID 2.x block 0x21.
+///
+/// Each variant names the fast (pixel) axis followed by the slow (line) axis. For example,
+/// [`LeftRightTopBottom`][Self::LeftRightTopBottom] means pixels are painted left-to-right
+/// within a line and lines advance top-to-bottom — the conventional raster order.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScanOrientation {
+    /// Left-to-right, top-to-bottom (`0b000`). Default raster order.
+    #[default]
+    LeftRightTopBottom,
+    /// Right-to-left, top-to-bottom (`0b001`).
+    RightLeftTopBottom,
+    /// Top-to-bottom, right-to-left (`0b010`).
+    TopBottomRightLeft,
+    /// Bottom-to-top, right-to-left (`0b011`).
+    BottomTopRightLeft,
+    /// Right-to-left, bottom-to-top (`0b100`).
+    RightLeftBottomTop,
+    /// Left-to-right, bottom-to-top (`0b101`).
+    LeftRightBottomTop,
+    /// Bottom-to-top, left-to-right (`0b110`).
+    BottomTopLeftRight,
+    /// Top-to-bottom, left-to-right (`0b111`).
+    TopBottomLeftRight,
+}
+
+impl ScanOrientation {
+    /// Decodes bits 2:0 of byte 11. Upper bits are ignored.
+    pub fn from_bits(b: u8) -> Self {
+        match b & 0b111 {
+            0b000 => Self::LeftRightTopBottom,
+            0b001 => Self::RightLeftTopBottom,
+            0b010 => Self::TopBottomRightLeft,
+            0b011 => Self::BottomTopRightLeft,
+            0b100 => Self::RightLeftBottomTop,
+            0b101 => Self::LeftRightBottomTop,
+            0b110 => Self::BottomTopLeftRight,
+            _ => Self::TopBottomLeftRight,
+        }
+    }
+
+    /// Returns the 3-bit encoding (bits 2:0).
+    pub fn as_bits(self) -> u8 {
+        match self {
+            Self::LeftRightTopBottom => 0b000,
+            Self::RightLeftTopBottom => 0b001,
+            Self::TopBottomRightLeft => 0b010,
+            Self::BottomTopRightLeft => 0b011,
+            Self::RightLeftBottomTop => 0b100,
+            Self::LeftRightBottomTop => 0b101,
+            Self::BottomTopLeftRight => 0b110,
+            Self::TopBottomLeftRight => 0b111,
+        }
+    }
 }
 
 /// Dynamic video timing range decoded from DisplayID 2.x block 0x25.
@@ -197,5 +296,63 @@ mod tests {
         };
         assert!(max.x() < 1.0);
         assert!(max.y() < 1.0);
+    }
+
+    #[test]
+    fn display_technology_decodes_known_bytes() {
+        assert_eq!(
+            DisplayTechnology::from_byte(0x00),
+            DisplayTechnology::Unspecified
+        );
+        assert_eq!(DisplayTechnology::from_byte(0x01), DisplayTechnology::Amlcd);
+        assert_eq!(
+            DisplayTechnology::from_byte(0x02),
+            DisplayTechnology::Amoled
+        );
+    }
+
+    #[test]
+    fn display_technology_preserves_unknown_bytes() {
+        assert_eq!(
+            DisplayTechnology::from_byte(0x42),
+            DisplayTechnology::Other(0x42)
+        );
+        assert_eq!(DisplayTechnology::Other(0x42).as_byte(), 0x42);
+    }
+
+    #[test]
+    fn display_technology_round_trips() {
+        for b in [0x00u8, 0x01, 0x02, 0x55, 0xFF] {
+            assert_eq!(DisplayTechnology::from_byte(b).as_byte(), b);
+        }
+    }
+
+    #[test]
+    fn scan_orientation_round_trips_all_eight_codes() {
+        for bits in 0u8..8 {
+            let orient = ScanOrientation::from_bits(bits);
+            assert_eq!(orient.as_bits(), bits);
+        }
+    }
+
+    #[test]
+    fn scan_orientation_ignores_upper_bits() {
+        assert_eq!(
+            ScanOrientation::from_bits(0b1111_1000),
+            ScanOrientation::LeftRightTopBottom
+        );
+        assert_eq!(
+            ScanOrientation::from_bits(0b1111_1111),
+            ScanOrientation::TopBottomLeftRight
+        );
+    }
+
+    #[test]
+    fn defaults_match_raster_convention() {
+        assert_eq!(DisplayTechnology::default(), DisplayTechnology::Unspecified);
+        assert_eq!(
+            ScanOrientation::default(),
+            ScanOrientation::LeftRightTopBottom
+        );
     }
 }

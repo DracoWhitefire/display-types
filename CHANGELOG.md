@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DisplayParamsV2` — display parameters from 2.x block 0x21: factory-calibrated chromaticity,
   IEEE 754 half-precision luminance (max full/10%, min as `Option<f32>`), color bit depth,
   display technology, gamma EOTF, scan orientation, and audio jack flag.
+- `DisplayTechnology` enum — decodes byte 10 of block 0x21 into `Unspecified`, `Amlcd`,
+  `Amoled`, or `Other(u8)` for reserved/vendor-specific values. Provides `from_byte` /
+  `as_byte` for round-trippable decoding.
+- `ScanOrientation` enum — decodes bits 2:0 of byte 11 of block 0x21 into the eight
+  spec-defined fast-axis/slow-axis combinations (e.g. `LeftRightTopBottom` for conventional
+  raster order). Provides `from_bits` / `as_bits`.
 - `DynamicTimingRange` — dynamic timing range from 2.x block 0x25: min/max pixel clock in kHz
   (3-byte LE, 1 kHz resolution), min/max vertical refresh rate in Hz (9-bit), VRR support flag.
 - `DisplayInterfaceFeatures` — interface features from 2.x block 0x26: per-encoding color depth
