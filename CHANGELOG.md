@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `RefreshRate` — exact rational refresh rate type replacing `VideoMode::refresh_rate: u16`.
   Stored as `(numer: u32, denom: u32)` in lowest terms (fields private; use `numer()` /
-  `denom()` accessors). Constructors: `integral(hz: u32)` and `fractional(numer, denom)`;
-  `Deserialize` also reduces via `fractional`. Implements `Ord` via cross-multiplication,
-  `Display` as `"60 Hz"` / `"60000/1001 Hz"`, and `From<u32>` / `From<u16>` for ergonomic
-  construction. `as_f64()` returns the normalised value.
+  `denom()` accessors). Constructors: `integral(hz: u32)`, `fractional(numer, denom)`, and
+  `from_ratio(numer: u64, denom: u64) -> Option<Self>` for computing rates from large
+  intermediate values such as `pixel_clock_hz / (h_total × v_total)`. `Deserialize` also
+  reduces via `fractional`. Implements `Ord` via cross-multiplication, `Display` as `"60 Hz"`
+  / `"60000/1001 Hz"`, and `From<u32>` / `From<u16>` for ergonomic construction. `as_f64()`
+  returns the normalised value.
 - `ChromaticityPoint12` — 12-bit fixed-point chromaticity coordinate pair for DisplayID 2.x
   block 0x21. Accessor methods `x()` and `y()` normalise to `[0.0, 1.0)` by dividing by 4096.
 - `Chromaticity12` — four `ChromaticityPoint12` values (three primaries and white point).

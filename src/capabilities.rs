@@ -156,6 +156,15 @@ fn gcd(mut a: u32, mut b: u32) -> u32 {
     a
 }
 
+fn gcd_u64(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let t = b;
+        b = a % b;
+        a = t;
+    }
+    a
+}
+
 impl RefreshRate {
     /// Constructs an integer refresh rate (e.g. `RefreshRate::integral(60)` → 60/1).
     pub fn integral(hz: u32) -> Self {
@@ -177,6 +186,31 @@ impl RefreshRate {
             numer: numer / g,
             denom: denom / g,
         }
+    }
+
+    /// Constructs a refresh rate from a `numer/denom` ratio in Hz, reduced to lowest terms.
+    ///
+    /// Useful when the rate is computed from intermediate values that exceed `u32`, such as
+    /// `pixel_clock_hz / (h_total × v_total)` for detailed-timing descriptors. Reduces in
+    /// `u64` then narrows to `u32`.
+    ///
+    /// Returns `None` if `denom` is zero or if the reduced fraction does not fit in `u32`.
+    ///
+    /// ```
+    /// use display_types::RefreshRate;
+    ///
+    /// // NTSC-style fractional rate computed from a large numerator and denominator.
+    /// let r = RefreshRate::from_ratio(60_000_000, 1_001_000).unwrap();
+    /// assert_eq!(r, RefreshRate::fractional(60_000, 1_001));
+    /// ```
+    pub fn from_ratio(numer: u64, denom: u64) -> Option<Self> {
+        if denom == 0 {
+            return None;
+        }
+        let g = gcd_u64(numer, denom);
+        let n = u32::try_from(numer / g).ok()?;
+        let d = u32::try_from(denom / g).ok()?;
+        Some(Self { numer: n, denom: d })
     }
 
     /// Numerator of the reduced fraction, in Hz.
@@ -676,5 +710,40 @@ mod refresh_rate_tests {
     fn as_f64_normalises() {
         let delta = RefreshRate::fractional(60000, 1001).as_f64() - 59.94;
         assert!(delta.abs() < 0.01);
+    }
+
+    #[test]
+    fn from_ratio_reduces_large_values() {
+        // 1080p@59.94: pc = 148_352 kHz, h_total × v_total = 2200 × 1125 = 2_475_000
+        // 148_352_000 / 2_475_000 = 59.9402… (non-canonical reduction).
+        let r = RefreshRate::from_ratio(148_352_000, 2_475_000).unwrap();
+        // gcd(148_352_000, 2_475_000) = 1000 → 148_352 / 2_475
+        assert_eq!(r.numer(), 148_352);
+        assert_eq!(r.denom(), 2_475);
+    }
+
+    #[test]
+    fn from_ratio_canonicalises_integer_rate() {
+        // 60 Hz exact: pc = 148_500 kHz, total = 2_475_000 → 148_500_000 / 2_475_000 = 60.
+        let r = RefreshRate::from_ratio(148_500_000, 2_475_000).unwrap();
+        assert_eq!(r, RefreshRate::integral(60));
+    }
+
+    #[test]
+    fn from_ratio_returns_none_on_zero_denominator() {
+        assert_eq!(RefreshRate::from_ratio(60, 0), None);
+    }
+
+    #[test]
+    fn from_ratio_handles_zero_numerator() {
+        let r = RefreshRate::from_ratio(0, 1000).unwrap();
+        assert_eq!(r, RefreshRate::integral(0));
+    }
+
+    #[test]
+    fn from_ratio_returns_none_when_reduced_exceeds_u32() {
+        // Coprime values both ≥ 2^32 cannot reduce into u32.
+        let big = u64::from(u32::MAX) + 2;
+        assert_eq!(RefreshRate::from_ratio(big, big - 1), None);
     }
 }
