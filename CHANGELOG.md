@@ -34,13 +34,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DisplayInterfaceFeatures` — interface features from 2.x block 0x26: per-encoding color depth
   bitmasks (RGB, YCbCr 4:4:4/4:2:2/4:2:0), minimum 4:2:0 pixel rate, audio flags, and color
   space/EOTF combination bitmask. Field doc comments now reference the source payload byte index.
-- `Default` derive on `DisplayParamsV2`, `DynamicTimingRange`, and `DisplayInterfaceFeatures`.
-  Required to construct these `#[non_exhaustive]` structs from downstream crates (struct
-  expressions are forbidden across crate boundaries); decoders use `Default::default()` plus
-  field assignment.
-- `DisplayIdCapabilities` gains five new `Option` fields: `manufacturer_oui: Option<[u8; 3]>`,
+- `DisplayIdStereoInterfaceV2` — stereo display interface from 2.x block 0x27, alongside
+  supporting types `StereoTimingScopeV2` (4 variants from revision bits 7:6),
+  `StereoViewingMethodV2` (FieldSequential / SideBySide / PixelInterleaved / DualInterface /
+  MultiView / StackedFrame / Proprietary / Reserved with method-specific parameters),
+  `StereoEye` (Left / Right), and `DualInterfaceMirroring` (None / LeftRight / TopBottom /
+  Reserved). Inline timing-code list (when present) is detectable via
+  `DisplayIdStereoInterfaceV2::has_timing_codes` but not currently parsed.
+- `Default` derive (or impl) on `DisplayParamsV2`, `DynamicTimingRange`,
+  `DisplayInterfaceFeatures`, and `DisplayIdStereoInterfaceV2`. Required to construct these
+  `#[non_exhaustive]` structs from downstream crates (struct expressions are forbidden across
+  crate boundaries); decoders use `Default::default()` plus field assignment.
+- `DisplayIdCapabilities` gains six new `Option` fields: `manufacturer_oui: Option<[u8; 3]>`,
   `display_params_v2: Option<DisplayParamsV2>`, `dynamic_timing_range: Option<DynamicTimingRange>`,
-  `interface_features: Option<DisplayInterfaceFeatures>`, `container_id: Option<[u8; 16]>`.
+  `interface_features: Option<DisplayInterfaceFeatures>`,
+  `stereo_interface_v2: Option<DisplayIdStereoInterfaceV2>`, `container_id: Option<[u8; 16]>`.
   All default to `None`; `new()` initialises them accordingly.
 - `tag` module: V2 tag constants `V2_PRODUCT_ID` (0x20) through `V2_CONTAINER_ID` (0x29),
   `V2_VENDOR_SPECIFIC` (0x7E), and `V2_CTA_DISPLAYID` (0x81).
