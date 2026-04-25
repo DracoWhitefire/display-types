@@ -1,5 +1,8 @@
 //! Types decoded from DisplayID 1.x and 2.x extension blocks (EDID extension tag `0x70`).
 
+#[cfg(any(feature = "alloc", feature = "std"))]
+use crate::Vec;
+
 /// DisplayID 1.x and 2.x data block tag constants.
 pub mod tag;
 
@@ -386,6 +389,27 @@ impl DisplayIdStereoInterfaceV2 {
     }
 }
 
+/// Vendor-specific data block from DisplayID 2.x block 0x7E (§4.10).
+///
+/// The payload is an IEEE OUI identifying the vendor followed by `n` bytes of
+/// vendor-defined data whose semantics this crate does not interpret. Consumers
+/// match on `oui` to dispatch to a vendor-specific parser of their choice.
+///
+/// Multiple 0x7E blocks may appear in a single section — each is decoded and
+/// appended to `DisplayIdCapabilities::vendor_specific` in payload order.
+#[non_exhaustive]
+#[cfg(any(feature = "alloc", feature = "std"))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DisplayIdVendorSpecific {
+    /// 3-byte IEEE OUI identifying the vendor (e.g. `[0x00, 0xD0, 0x46]` = Dolby).
+    /// Bytes are stored in the order they appear in the payload (high-order byte first).
+    pub oui: [u8; 3],
+    /// Opaque vendor-defined payload following the OUI. Empty when the block carries
+    /// only the OUI with no further data.
+    pub data: Vec<u8>,
+}
+
 /// Rich capabilities extracted from a DisplayID 1.x or 2.x extension section.
 ///
 /// Stored in `DisplayCapabilities` via `set_extension_data(0x70, ...)` by the dynamic
@@ -411,6 +435,9 @@ pub struct DisplayIdCapabilities {
     pub stereo_interface_v2: Option<DisplayIdStereoInterfaceV2>,
     /// ContainerID UUID from 2.x block 0x29 (16 raw bytes).
     pub container_id: Option<[u8; 16]>,
+    /// Vendor-specific data blocks from 2.x block 0x7E, in payload order.
+    /// Empty when no 0x7E blocks were present.
+    pub vendor_specific: Vec<DisplayIdVendorSpecific>,
 }
 
 #[cfg(any(feature = "alloc", feature = "std"))]
@@ -426,6 +453,7 @@ impl DisplayIdCapabilities {
             interface_features: None,
             stereo_interface_v2: None,
             container_id: None,
+            vendor_specific: Vec::new(),
         }
     }
 }
