@@ -33,7 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (3-byte LE, 1 kHz resolution), min/max vertical refresh rate in Hz (9-bit), VRR support flag.
 - `DisplayInterfaceFeatures` — interface features from 2.x block 0x26: per-encoding color depth
   bitmasks (RGB, YCbCr 4:4:4/4:2:2/4:2:0), minimum 4:2:0 pixel rate, audio flags, and color
-  space/EOTF combination bitmask.
+  space/EOTF combination bitmask. Field doc comments now reference the source payload byte index.
+- `Default` derive on `DisplayParamsV2`, `DynamicTimingRange`, and `DisplayInterfaceFeatures`.
+  Required to construct these `#[non_exhaustive]` structs from downstream crates (struct
+  expressions are forbidden across crate boundaries); decoders use `Default::default()` plus
+  field assignment.
 - `DisplayIdCapabilities` gains five new `Option` fields: `manufacturer_oui: Option<[u8; 3]>`,
   `display_params_v2: Option<DisplayParamsV2>`, `dynamic_timing_range: Option<DynamicTimingRange>`,
   `interface_features: Option<DisplayInterfaceFeatures>`, `container_id: Option<[u8; 16]>`.

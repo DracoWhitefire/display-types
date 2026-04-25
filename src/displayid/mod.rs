@@ -58,7 +58,7 @@ pub struct Chromaticity12 {
 /// and `native_pixels`.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct DisplayParamsV2 {
     /// Factory-calibrated chromaticity for the three primaries and white point.
     pub chromaticity: Chromaticity12,
@@ -190,7 +190,7 @@ impl ScanOrientation {
 /// introduced in block revision 1.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DynamicTimingRange {
     /// Minimum pixel clock in kHz (3-byte LE field).
     pub min_pixel_clock_khz: u32,
@@ -211,21 +211,21 @@ pub struct DynamicTimingRange {
 /// 4 = 14, 5 = 16. For YCbCr 4:2:2 and 4:2:0: bit 0 = 8, 1 = 10, 2 = 12, 3 = 14, 4 = 16.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DisplayInterfaceFeatures {
-    /// Color depth support bitmask for RGB encoding.
+    /// Color depth support bitmask for RGB encoding (payload byte 0).
     pub color_depth_rgb: u8,
-    /// Color depth support bitmask for YCbCr 4:4:4 encoding.
+    /// Color depth support bitmask for YCbCr 4:4:4 encoding (payload byte 1).
     pub color_depth_ycbcr444: u8,
-    /// Color depth support bitmask for YCbCr 4:2:2 encoding.
+    /// Color depth support bitmask for YCbCr 4:2:2 encoding (payload byte 2).
     pub color_depth_ycbcr422: u8,
-    /// Color depth support bitmask for YCbCr 4:2:0 encoding.
+    /// Color depth support bitmask for YCbCr 4:2:0 encoding (payload byte 3).
     pub color_depth_ycbcr420: u8,
-    /// Minimum pixel rate for YCbCr 4:2:0 in units of 74.25 MP/s. `0` = all modes supported.
+    /// Minimum pixel rate for YCbCr 4:2:0 in units of 74.25 MP/s (payload byte 4). `0` = all modes supported.
     pub min_ycbcr420_pixel_rate: u8,
-    /// Audio capability flags (bits 5–7: 48/44.1/32 kHz sample rate support).
+    /// Audio capability flags (payload byte 5; bits 5–7: 32/44.1/48 kHz sample rate support).
     pub audio_flags: u8,
-    /// Color space and EOTF combination 1 bitmask (byte 9 of payload).
+    /// Color space and EOTF defined-combinations bitmask (payload byte 6).
     pub color_space_eotf_1: u8,
 }
 
