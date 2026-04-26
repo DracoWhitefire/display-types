@@ -229,12 +229,6 @@ impl RefreshRate {
     }
 }
 
-impl Default for RefreshRate {
-    fn default() -> Self {
-        Self::integral(0)
-    }
-}
-
 impl PartialOrd for RefreshRate {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
@@ -283,8 +277,9 @@ pub struct VideoMode {
     pub width: u16,
     /// Vertical resolution in pixels.
     pub height: u16,
-    /// Refresh rate as an exact rational number in Hz.
-    pub refresh_rate: RefreshRate,
+    /// Refresh rate as an exact rational number in Hz, or `None` when unspecified
+    /// (e.g. a default-constructed `VideoMode` whose rate has not been set).
+    pub refresh_rate: Option<RefreshRate>,
     /// `true` for interlaced modes; `false` for progressive (the common case).
     pub interlaced: bool,
     /// Horizontal front porch in pixels (0 when not decoded from a DTD).
@@ -328,7 +323,7 @@ impl VideoMode {
         Self {
             width,
             height,
-            refresh_rate: refresh_rate.into(),
+            refresh_rate: Some(refresh_rate.into()),
             interlaced,
             ..Self::default()
         }
@@ -709,11 +704,6 @@ mod refresh_rate_tests {
             format!("{}", RefreshRate::fractional(60000, 1001)),
             "60000/1001 Hz"
         );
-    }
-
-    #[test]
-    fn default_is_zero_hz() {
-        assert_eq!(RefreshRate::default(), RefreshRate::integral(0));
     }
 
     #[test]

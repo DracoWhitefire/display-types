@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   intermediate values such as `pixel_clock_hz / (h_total × v_total)`. `Deserialize` also
   reduces via `fractional`. Implements `Ord` via cross-multiplication, `Display` as `"60 Hz"`
   / `"60000/1001 Hz"`, and `From<u32>` / `From<u16>` for ergonomic construction. `as_f64()`
-  returns the normalised value.
+  returns the normalised value. Deliberately does **not** implement `Default` — there is no
+  meaningful default refresh rate, and the field is now `Option<RefreshRate>` so an unset
+  rate has its own representation.
 - `ChromaticityPoint12` — 12-bit fixed-point chromaticity coordinate pair for DisplayID 2.x
   block 0x21. Accessor methods `x()` and `y()` normalise to `[0.0, 1.0)` by dividing by 4096.
 - `Chromaticity12` — four `ChromaticityPoint12` values (three primaries and white point).
@@ -66,9 +68,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
-- `VideoMode::refresh_rate` changed from `u16` to `RefreshRate`. `VideoMode::new` now accepts
-  `impl Into<RefreshRate>` for the refresh rate parameter, so integer literals require a `u32`
-  suffix (e.g. `60u32`) or explicit `RefreshRate::integral(60)`.
+- `VideoMode::refresh_rate` changed from `u16` to `Option<RefreshRate>`. `VideoMode::new` now
+  accepts `impl Into<RefreshRate>` for the refresh rate parameter and stores it as `Some(...)`,
+  so integer literals require a `u32` suffix (e.g. `60u32`) or explicit `RefreshRate::integral(60)`.
+  Default-constructed `VideoMode` (and any code reading the field) must handle the `None` case.
+  `pixel_clock_khz` returns `0` when `refresh_rate` is `None` and no DTD pixel clock is set.
 - DMT 0x58 (4096×2160) is now stored as `RefreshRate::fractional(60000, 1001)` (≈ 59.94 Hz)
   rather than the truncated `60`.
 - `DisplayIdCapabilities` no longer derives `Eq` (only `PartialEq`). The new

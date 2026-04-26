@@ -14,6 +14,8 @@ use crate::VideoMode;
 /// pixel_clock_khz ≈ (width + 160) × (height + 8) × refresh_rate / 1000
 /// ```
 ///
+/// Returns `0` when neither `mode.pixel_clock_khz` nor `mode.refresh_rate` is set.
+///
 /// # Accuracy of the fallback estimate
 ///
 /// CVT-RB is the dominant timing standard for modern display modes. For typical consumer
@@ -28,10 +30,13 @@ pub fn pixel_clock_khz(mode: &VideoMode) -> u32 {
     if let Some(clk) = mode.pixel_clock_khz {
         return clk;
     }
+    let Some(rr) = mode.refresh_rate else {
+        return 0;
+    };
     let h_total = mode.width as u64 + 160;
     let v_total = mode.height as u64 + 8;
-    let numer = mode.refresh_rate.numer() as u64;
-    let denom = mode.refresh_rate.denom() as u64;
+    let numer = rr.numer() as u64;
+    let denom = rr.denom() as u64;
     (h_total * v_total * numer / (denom * 1000)) as u32
 }
 
@@ -72,6 +77,17 @@ mod tests {
     #[test]
     fn zero_refresh_rate_returns_zero() {
         let mode = VideoMode::new(1920, 1080, 0u32, false);
+        assert_eq!(pixel_clock_khz(&mode), 0);
+    }
+
+    #[test]
+    fn unset_refresh_rate_returns_zero() {
+        let mode = VideoMode {
+            width: 1920,
+            height: 1080,
+            refresh_rate: None,
+            ..Default::default()
+        };
         assert_eq!(pixel_clock_khz(&mode), 0);
     }
 }

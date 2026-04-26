@@ -190,7 +190,10 @@ mod tests {
         let mode = dmt_to_mode(0x58).unwrap();
         assert_eq!(mode.width, 4096);
         assert_eq!(mode.height, 2160);
-        assert_eq!(mode.refresh_rate, RefreshRate::fractional(60000, 1001));
+        assert_eq!(
+            mode.refresh_rate,
+            Some(RefreshRate::fractional(60000, 1001))
+        );
         assert_eq!(mode.pixel_clock_khz, Some(556_188));
         assert_eq!(mode.source, Some(ModeSource::DmtId(0x58)));
     }
