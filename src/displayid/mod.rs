@@ -55,9 +55,10 @@ pub struct Chromaticity12 {
 /// Display parameters decoded from DisplayID 2.x block 0x21.
 ///
 /// Contains factory-calibrated colorimetry (12-bit chromaticity), HDR luminance
-/// levels (IEEE 754 half-precision float), color depth, display technology, and
-/// gamma. Image size and pixel count are exposed separately on
-/// [`DisplayCapabilities`][crate::DisplayCapabilities] via `preferred_image_size_mm`
+/// levels, color depth, display technology, and gamma. Luminance values are
+/// transmitted on-wire as IEEE 754 half-precision (`f16`) and converted to `f32`
+/// by the decoder before storage. Image size and pixel count are exposed separately
+/// on [`DisplayCapabilities`][crate::DisplayCapabilities] via `preferred_image_size_mm`
 /// and `native_pixels`.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -330,7 +331,7 @@ pub enum DualInterfaceMirroring {
 ///
 /// Encoded in bits 7:6 of the block's revision/flags byte. Variants `ExplicitAndListedTimings`
 /// and `ListedTimingCodesOnly` indicate that the block carries an inline list of timing codes
-/// (DMT/VIC/HDMI VIC) which currently is not parsed; consumers can still detect its presence
+/// (DMT/VIC/HDMI VIC) which is not parsed by this crate; consumers can still detect its presence
 /// via [`DisplayIdStereoInterfaceV2::has_timing_codes`].
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -428,7 +429,7 @@ pub enum StereoViewingMethodV2 {
 /// Stereo display interface decoded from a DisplayID 2.x block 0x27.
 ///
 /// The block also carries an optional inline list of timing codes (DMT/VIC/HDMI VIC) when
-/// [`Self::has_timing_codes`] returns `true`; that list is not currently parsed.
+/// [`Self::has_timing_codes`] returns `true`; that list is not parsed by this crate.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

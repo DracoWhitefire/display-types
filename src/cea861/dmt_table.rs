@@ -147,6 +147,9 @@ pub fn dmt_to_mode(id: u16) -> Option<VideoMode> {
         0x55 => e!(1280, 720, 60, false, 110, 40, 5, 5, true, true, 74250),
         0x56 => e!(1366, 768, 60, false, 14, 56, 1, 3, true, true, 72000),
         0x57 => e!(4096, 2160, 60, false, 8, 32, 48, 8, true, true, 556744),
+        // 0x58 is the only fractional-rate DMT entry (59.94 Hz); the `e!` macro casts
+        // its rate token via `as u32`, which can't accept a non-integer expression,
+        // so this entry is expanded inline.
         0x58 => VideoMode::new(4096, 2160, RefreshRate::fractional(60000, 1001), false)
             .with_detailed_timing(
                 556188,
