@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `DisplayCapabilities::take_extension_data<T>` — removes and returns a stored extension
+  data entry by tag for take-mutate-restore patterns where multiple input sources contribute
+  to a single extension's capability struct (e.g. CTA-861 data delivered both via the
+  CEA-861 extension block and via the DisplayID 2.x CTA DisplayID block 0x81). Requires
+  `T: ExtensionData + Clone`; the entry is left in place if the stored type does not match.
 - `RefreshRate` — exact rational refresh rate type replacing `VideoMode::refresh_rate: u16`.
   Stored as `(numer: u32, denom: u32)` in lowest terms (fields private; use `numer()` /
   `denom()` accessors). Constructors: `integral(hz: u32)`, `fractional(numer, denom)`, and

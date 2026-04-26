@@ -629,6 +629,24 @@ impl DisplayCapabilities {
             // `ExtensionData` impl for Arc itself and return the wrong TypeId.
             .and_then(|(_, data)| (**data).as_any().downcast_ref::<T>())
     }
+
+    /// Removes the extension data entry for `tag` and returns it as `T`.
+    ///
+    /// Intended for take-mutate-restore patterns where multiple input sources contribute
+    /// to a single extension's capability struct (e.g. CTA-861 data delivered both via
+    /// the CEA-861 extension block and via the DisplayID 2.x CTA DisplayID block 0x81).
+    /// The caller mutates the returned value and stores it back with
+    /// [`set_extension_data`][Self::set_extension_data].
+    ///
+    /// Returns `None` if no entry exists for `tag` or the stored type is not `T`.
+    /// When the type does not match, the entry is left in place.
+    pub fn take_extension_data<T: ExtensionData + Clone>(&mut self, tag: u8) -> Option<T> {
+        let pos = self.extension_data.iter().position(|(t, _)| *t == tag)?;
+        // Peek before removing — type mismatch must not destroy the entry.
+        (*self.extension_data[pos].1).as_any().downcast_ref::<T>()?;
+        let (_, arc) = self.extension_data.remove(pos);
+        (*arc).as_any().downcast_ref::<T>().cloned()
+    }
 }
 
 #[cfg(test)]
