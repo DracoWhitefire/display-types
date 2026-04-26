@@ -289,11 +289,12 @@ pub struct DisplayInterfaceFeatures {
     /// flags whose semantics this crate does not yet typify. Treat as opaque until a
     /// dedicated bitflags type lands.
     pub audio_flags: u8,
-    /// Color space and EOTF defined-combinations bitmask (payload byte 6). The DisplayID
-    /// 2.x spec defines additional combination bytes (`color_space_eotf_2..N`); this field
-    /// holds only the first byte. Stored as a raw byte until the full combination layout
-    /// is typified.
-    pub color_space_eotf_1: u8,
+    /// Color space and EOTF defined-combinations bitmask (payload byte 6). Each set bit
+    /// indicates support for one of the spec's pre-defined `(color space, EOTF)` pairs.
+    /// Stored as a raw byte until a typed bitflags wrapper for the defined combinations
+    /// lands. Custom combinations (payload bytes 7–8) are a separate concept and are not
+    /// represented here.
+    pub color_space_eotf_combos: u8,
 }
 
 /// Identifies the eye targeted by a stereo viewing-method parameter.
