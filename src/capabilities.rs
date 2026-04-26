@@ -755,3 +755,50 @@ mod refresh_rate_tests {
         assert_eq!(RefreshRate::from_ratio(big, big - 1), None);
     }
 }
+
+#[cfg(test)]
+#[cfg(any(feature = "alloc", feature = "std"))]
+mod extension_data_tests {
+    use super::*;
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct Foo(u32);
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct Bar(u32);
+
+    #[test]
+    fn take_extension_data_returns_and_removes_entry() {
+        let mut caps = DisplayCapabilities::default();
+        caps.set_extension_data(0x70, Foo(42));
+        let taken: Foo = caps.take_extension_data(0x70).expect("entry present");
+        assert_eq!(taken, Foo(42));
+        assert!(caps.get_extension_data::<Foo>(0x70).is_none());
+    }
+
+    #[test]
+    fn take_extension_data_returns_none_for_missing_tag() {
+        let mut caps = DisplayCapabilities::default();
+        assert!(caps.take_extension_data::<Foo>(0x70).is_none());
+    }
+
+    #[test]
+    fn take_extension_data_leaves_entry_on_type_mismatch() {
+        let mut caps = DisplayCapabilities::default();
+        caps.set_extension_data(0x70, Foo(7));
+        // Wrong type — must return None and not destroy the entry.
+        assert!(caps.take_extension_data::<Bar>(0x70).is_none());
+        // Entry still retrievable as the original type.
+        assert_eq!(caps.get_extension_data::<Foo>(0x70), Some(&Foo(7)));
+    }
+
+    #[test]
+    fn take_extension_data_round_trip_via_set() {
+        let mut caps = DisplayCapabilities::default();
+        caps.set_extension_data(0x70, Foo(1));
+        let mut foo: Foo = caps.take_extension_data(0x70).unwrap();
+        foo.0 += 1;
+        caps.set_extension_data(0x70, foo);
+        assert_eq!(caps.get_extension_data::<Foo>(0x70), Some(&Foo(2)));
+    }
+}
