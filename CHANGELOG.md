@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DisplayInterfaceFeatures` — interface features from 2.x block 0x26: per-encoding color depth
   bitmasks (RGB, YCbCr 4:4:4/4:2:2/4:2:0), minimum 4:2:0 pixel rate, audio flags, and color
   space/EOTF combination bitmask. Field doc comments now reference the source payload byte index.
+  Color depth fields use typed `bitflags!` wrappers `ColorDepthsFull` (RGB and YCbCr 4:4:4 —
+  6/8/10/12/14/16 bpc) and `ColorDepthsSubsampled` (YCbCr 4:2:2 and 4:2:0 — 8/10/12/14/16 bpc).
+  `audio_flags` and `color_space_eotf_1` remain `u8` pending full spec typing.
 - `DisplayIdVendorSpecific` — envelope for 2.x block 0x7E: 3-byte IEEE OUI plus opaque
   vendor-defined `data: Vec<u8>`. The crate does not interpret payload semantics; consumers
   match on `oui` to dispatch to vendor-specific parsers (e.g. Dolby `00-D0-46`,

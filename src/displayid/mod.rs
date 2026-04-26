@@ -228,28 +228,71 @@ pub struct DynamicTimingRange {
     pub vrr_supported: bool,
 }
 
+bitflags::bitflags! {
+    /// Color depths supported for full-bandwidth encodings (RGB and YCbCr 4:4:4) per
+    /// DisplayID 2.x block 0x26 bytes 0–1. Bit positions match the on-wire encoding.
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub struct ColorDepthsFull: u8 {
+        /// 6 bits per channel.
+        const BPC_6  = 0x01;
+        /// 8 bits per channel.
+        const BPC_8  = 0x02;
+        /// 10 bits per channel.
+        const BPC_10 = 0x04;
+        /// 12 bits per channel.
+        const BPC_12 = 0x08;
+        /// 14 bits per channel.
+        const BPC_14 = 0x10;
+        /// 16 bits per channel.
+        const BPC_16 = 0x20;
+    }
+}
+
+bitflags::bitflags! {
+    /// Color depths supported for chroma-subsampled YCbCr encodings (4:2:2 and 4:2:0)
+    /// per DisplayID 2.x block 0x26 bytes 2–3. 6 bpc is not representable: subsampled
+    /// formats start at 8 bpc. Bit positions match the on-wire encoding.
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub struct ColorDepthsSubsampled: u8 {
+        /// 8 bits per channel.
+        const BPC_8  = 0x01;
+        /// 10 bits per channel.
+        const BPC_10 = 0x02;
+        /// 12 bits per channel.
+        const BPC_12 = 0x04;
+        /// 14 bits per channel.
+        const BPC_14 = 0x08;
+        /// 16 bits per channel.
+        const BPC_16 = 0x10;
+    }
+}
+
 /// Display interface features decoded from DisplayID 2.x block 0x26.
-///
-/// Each `color_depth_*` field is a bitmask where set bits indicate supported bit depths.
-/// For RGB and YCbCr 4:4:4 the bit positions are: bit 0 = 6 bpc, 1 = 8, 2 = 10, 3 = 12,
-/// 4 = 14, 5 = 16. For YCbCr 4:2:2 and 4:2:0: bit 0 = 8, 1 = 10, 2 = 12, 3 = 14, 4 = 16.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DisplayInterfaceFeatures {
-    /// Color depth support bitmask for RGB encoding (payload byte 0).
-    pub color_depth_rgb: u8,
-    /// Color depth support bitmask for YCbCr 4:4:4 encoding (payload byte 1).
-    pub color_depth_ycbcr444: u8,
-    /// Color depth support bitmask for YCbCr 4:2:2 encoding (payload byte 2).
-    pub color_depth_ycbcr422: u8,
-    /// Color depth support bitmask for YCbCr 4:2:0 encoding (payload byte 3).
-    pub color_depth_ycbcr420: u8,
+    /// Color depths supported for RGB encoding (payload byte 0).
+    pub color_depth_rgb: ColorDepthsFull,
+    /// Color depths supported for YCbCr 4:4:4 encoding (payload byte 1).
+    pub color_depth_ycbcr444: ColorDepthsFull,
+    /// Color depths supported for YCbCr 4:2:2 encoding (payload byte 2).
+    pub color_depth_ycbcr422: ColorDepthsSubsampled,
+    /// Color depths supported for YCbCr 4:2:0 encoding (payload byte 3).
+    pub color_depth_ycbcr420: ColorDepthsSubsampled,
     /// Minimum pixel rate for YCbCr 4:2:0 in units of 74.25 MP/s (payload byte 4). `0` = all modes supported.
     pub min_ycbcr420_pixel_rate: u8,
-    /// Audio capability flags (payload byte 5; bits 5–7: 32/44.1/48 kHz sample rate support).
+    /// Audio capability flags (payload byte 5). Stored as a raw byte: bits 5–7 advertise
+    /// 32/44.1/48 kHz sample-rate support, lower bits carry audio override and additional
+    /// flags whose semantics this crate does not yet typify. Treat as opaque until a
+    /// dedicated bitflags type lands.
     pub audio_flags: u8,
-    /// Color space and EOTF defined-combinations bitmask (payload byte 6).
+    /// Color space and EOTF defined-combinations bitmask (payload byte 6). The DisplayID
+    /// 2.x spec defines additional combination bytes (`color_space_eotf_2..N`); this field
+    /// holds only the first byte. Stored as a raw byte until the full combination layout
+    /// is typified.
     pub color_space_eotf_1: u8,
 }
 
@@ -584,5 +627,48 @@ mod tests {
             ScanOrientation::default(),
             ScanOrientation::LeftRightTopBottom
         );
+    }
+
+    #[test]
+    fn color_depths_full_bit_layout() {
+        // Wire byte 0b0010_1010 = 8 + 12 + 16 bpc.
+        let depths = ColorDepthsFull::from_bits_truncate(0b0010_1010);
+        assert!(depths.contains(ColorDepthsFull::BPC_8));
+        assert!(depths.contains(ColorDepthsFull::BPC_12));
+        assert!(depths.contains(ColorDepthsFull::BPC_16));
+        assert!(!depths.contains(ColorDepthsFull::BPC_6));
+        assert!(!depths.contains(ColorDepthsFull::BPC_10));
+        assert!(!depths.contains(ColorDepthsFull::BPC_14));
+        assert_eq!(depths.bits(), 0b0010_1010);
+    }
+
+    #[test]
+    fn color_depths_subsampled_bit_layout() {
+        // Wire byte 0b0001_0101 = 8 + 12 + 16 bpc (no 6 bpc bit).
+        let depths = ColorDepthsSubsampled::from_bits_truncate(0b0001_0101);
+        assert!(depths.contains(ColorDepthsSubsampled::BPC_8));
+        assert!(depths.contains(ColorDepthsSubsampled::BPC_12));
+        assert!(depths.contains(ColorDepthsSubsampled::BPC_16));
+        assert!(!depths.contains(ColorDepthsSubsampled::BPC_10));
+        assert!(!depths.contains(ColorDepthsSubsampled::BPC_14));
+        assert_eq!(depths.bits(), 0b0001_0101);
+    }
+
+    #[test]
+    fn color_depths_default_is_empty() {
+        assert!(ColorDepthsFull::default().is_empty());
+        assert!(ColorDepthsSubsampled::default().is_empty());
+        assert!(
+            DisplayInterfaceFeatures::default()
+                .color_depth_rgb
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn color_depths_subsampled_truncates_reserved_bits() {
+        // Bit 5 is reserved for subsampled; from_bits_truncate drops it.
+        let depths = ColorDepthsSubsampled::from_bits_truncate(0b0011_1111);
+        assert_eq!(depths.bits(), 0b0001_1111);
     }
 }
