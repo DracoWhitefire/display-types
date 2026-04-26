@@ -92,6 +92,11 @@ pub struct DisplayParamsV2 {
 ///
 /// Unknown byte values are preserved via [`DisplayTechnology::Other`] so a spec-defined
 /// future value (e.g. LCoS, microLED) does not make the containing block un-decodable.
+///
+/// `Other` is `#[non_exhaustive]` and cannot be constructed outside this crate; use
+/// [`from_byte`][Self::from_byte] (which canonicalises known bytes) or [`other`][Self::other]
+/// (which rejects known bytes) so that every value satisfies the invariant
+/// `from_byte(t.as_byte()) == t`.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -103,18 +108,34 @@ pub enum DisplayTechnology {
     Amlcd,
     /// Active-matrix OLED (byte value `0x02`).
     Amoled,
-    /// Reserved or vendor-specific value the decoder did not recognise.
+    /// Reserved or vendor-specific value the decoder did not recognise. Construction
+    /// is restricted to this crate; external callers must go through [`from_byte`][Self::from_byte]
+    /// or [`other`][Self::other].
+    #[non_exhaustive]
     Other(u8),
 }
 
 impl DisplayTechnology {
-    /// Decodes the raw byte 10 value.
+    /// Decodes the raw byte 10 value, mapping known bytes to their named variant.
     pub fn from_byte(b: u8) -> Self {
         match b {
             0x00 => Self::Unspecified,
             0x01 => Self::Amlcd,
             0x02 => Self::Amoled,
             other => Self::Other(other),
+        }
+    }
+
+    /// Constructs an `Other(b)` for a non-canonical byte value.
+    ///
+    /// Returns `None` for `0x00`, `0x01`, and `0x02` — those bytes have named variants
+    /// and constructing `Other` for them would break the round-trip invariant
+    /// `from_byte(t.as_byte()) == t`. Callers decoding raw EDID bytes should use
+    /// [`from_byte`][Self::from_byte] instead.
+    pub fn other(b: u8) -> Option<Self> {
+        match b {
+            0x00..=0x02 => None,
+            x => Some(Self::Other(x)),
         }
     }
 
@@ -511,8 +532,29 @@ mod tests {
     #[test]
     fn display_technology_round_trips() {
         for b in [0x00u8, 0x01, 0x02, 0x55, 0xFF] {
-            assert_eq!(DisplayTechnology::from_byte(b).as_byte(), b);
+            let t = DisplayTechnology::from_byte(b);
+            assert_eq!(t.as_byte(), b);
+            assert_eq!(DisplayTechnology::from_byte(t.as_byte()), t);
         }
+    }
+
+    #[test]
+    fn display_technology_other_rejects_canonical_bytes() {
+        assert_eq!(DisplayTechnology::other(0x00), None);
+        assert_eq!(DisplayTechnology::other(0x01), None);
+        assert_eq!(DisplayTechnology::other(0x02), None);
+    }
+
+    #[test]
+    fn display_technology_other_accepts_reserved_bytes() {
+        assert_eq!(
+            DisplayTechnology::other(0x42),
+            Some(DisplayTechnology::Other(0x42))
+        );
+        assert_eq!(
+            DisplayTechnology::other(0xFF),
+            Some(DisplayTechnology::Other(0xFF))
+        );
     }
 
     #[test]
