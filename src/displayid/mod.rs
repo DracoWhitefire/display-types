@@ -375,12 +375,13 @@ impl StereoTimingScopeV2 {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StereoViewingMethodV2 {
-    /// Method 0x00 — Field-sequential stereo. The `right_eye_polarity_high` flag mirrors
-    /// payload bit 0 of the method-argument byte: `true` corresponds to spec wording
-    /// "L/R polarity 0/1" (right-eye image during the high half of the sync signal).
+    /// Method 0x00 — Field-sequential stereo. `eye_on_high_half` identifies which eye view
+    /// is delivered during the HIGH half of the sync signal; the other eye is delivered
+    /// during the LOW half. `Right` corresponds to payload bit 0 = 1 (spec wording
+    /// "L/R polarity 1"), `Left` to bit 0 = 0 ("L/R polarity 0").
     FieldSequential {
-        /// `true` when the right-eye image is delivered during the high half of the sync signal.
-        right_eye_polarity_high: bool,
+        /// Eye view delivered during the HIGH half of the sync signal.
+        eye_on_high_half: StereoEye,
     },
     /// Method 0x01 — Side-by-side stereo. `left_half` indicates which eye view occupies
     /// the left half of the frame.

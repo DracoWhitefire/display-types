@@ -55,8 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `StereoViewingMethodV2` (FieldSequential / SideBySide / PixelInterleaved / DualInterface /
   MultiView / StackedFrame / Proprietary / Reserved with method-specific parameters),
   `StereoEye` (Left / Right), and `DualInterfaceMirroring` (None / LeftRight / TopBottom /
-  Reserved). Inline timing-code list (when present) is detectable via
-  `DisplayIdStereoInterfaceV2::has_timing_codes` but not currently parsed.
+  Reserved). `FieldSequential` carries `eye_on_high_half: StereoEye` (parallel to
+  `SideBySide.left_half`) rather than a `right_eye_polarity_high: bool`. Inline timing-code
+  list (when present) is detectable via `DisplayIdStereoInterfaceV2::has_timing_codes` but
+  not currently parsed.
 - `Default` derive (or impl) on `DisplayParamsV2`, `DynamicTimingRange`,
   `DisplayInterfaceFeatures`, and `DisplayIdStereoInterfaceV2`. Required to construct these
   `#[non_exhaustive]` structs from downstream crates (struct expressions are forbidden across
