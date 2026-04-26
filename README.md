@@ -29,23 +29,20 @@ exposes only the scalar types (enums and copy structs).
 
 ## Usage
 
-```toml
-[dependencies]
-display-types = "0.2"
+```sh
+cargo add display-types
 ```
 
 For `no_std` with heap allocation (e.g. embedded with an allocator):
 
-```toml
-[dependencies]
-display-types = { version = "0.2", default-features = false, features = ["alloc"] }
+```sh
+cargo add display-types --no-default-features --features alloc
 ```
 
 For bare `no_std` (scalars only):
 
-```toml
-[dependencies]
-display-types = { version = "0.2", default-features = false }
+```sh
+cargo add display-types --no-default-features
 ```
 
 ## Contributing
