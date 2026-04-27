@@ -159,10 +159,17 @@ const RB_V2_V_BPORCH: u16 = 6; // lines, fixed (v1 had a 6-line minimum but vari
 /// |------------------------------|--------|
 /// | `CvtRb1`                     | implemented (VESA CVT 1.1 §3.4) |
 /// | `CvtRb2`                     | implemented (VESA CVT 1.2 §4) |
-/// | `CvtRb3`                     | not yet — returns `None` |
+/// | `CvtRb3`                     | implemented (VESA CVT 2.0 §4.5; baseline identical to v2) |
 /// | `ReducedBlankingCvtRb1`      | not yet — returns `None` |
 /// | `ReducedBlankingCvtRb2`      | not yet — returns `None` |
 /// | `Reserved(_)`                | always `None` |
+///
+/// CVT-RB v3 shares its constants with v2 (`H_BLANK = 80`, `V_SYNC = 8`,
+/// `V_BPORCH = 6`, `MIN_V_BLANK = 460 µs`, 1 kHz pixel-clock step). The v3 spec
+/// additions over v2 — VRR vertical blanking scaling and the
+/// `ADDITIONAL_VBLANK_TIME` margin — apply to dynamic-rate operation and aren't
+/// expressible through a fixed-rate Type IX descriptor, so v3 evaluates to the
+/// same baseline timing as v2.
 pub fn compute_type_ix_timing(
     width: u16,
     height: u16,
@@ -171,9 +178,11 @@ pub fn compute_type_ix_timing(
 ) -> Option<ComputedTiming> {
     match algorithm {
         CvtAlgorithm::CvtRb1 => cvt_rb_v1(width, height, refresh_rate),
-        CvtAlgorithm::CvtRb2 => cvt_rb_v2(width, height, refresh_rate),
-        // CVT-RB v3 and the "reduced blanking with CVT-RB1/RB2" variants are not
-        // yet implemented. Reserved(_) values are by definition unevaluable.
+        // CVT-RB v3 baseline timing is identical to v2 for static Type IX
+        // descriptors — see the function-level table above for rationale.
+        CvtAlgorithm::CvtRb2 | CvtAlgorithm::CvtRb3 => cvt_rb_v2(width, height, refresh_rate),
+        // The "reduced blanking with CVT-RB1/RB2" variants are not yet implemented.
+        // Reserved(_) values are by definition unevaluable.
         _ => None,
     }
 }
@@ -417,11 +426,31 @@ mod cvt_tests {
     }
 
     #[test]
-    fn cvt_rb_v3_not_yet_implemented_returns_none() {
-        assert!(
-            compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb3)
-                .is_none()
-        );
+    fn cvt_rb_v3_matches_v2_baseline() {
+        // CVT-RB v3 baseline = RB v2 (the v3 spec additions are VRR-only and don't
+        // apply to a static Type IX descriptor). Pin both 1080p60 and 4K60.
+        for (w, h, hz) in [(1920u16, 1080u16, 60u32), (3840, 2160, 60)] {
+            let v2 = compute_type_ix_timing(w, h, RefreshRate::integral(hz), CvtAlgorithm::CvtRb2)
+                .expect("RB v2 must produce a timing");
+            let v3 = compute_type_ix_timing(w, h, RefreshRate::integral(hz), CvtAlgorithm::CvtRb3)
+                .expect("RB v3 must produce a timing");
+            assert_eq!(v2, v3, "RB v3 baseline must equal RB v2 for {w}×{h}@{hz}");
+        }
+    }
+
+    #[test]
+    fn cvt_rb_v3_1920x1080_at_60_pinned_values() {
+        // Independent regression guard: pin the v3 result directly so a future
+        // divergence from v2 (e.g. when VRR support lands) is caught here.
+        let t = compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb3)
+            .expect("RB v3 must produce a timing");
+        assert_eq!(t.pixel_clock_khz, 133_320);
+        assert_eq!(t.h_total, 2000);
+        assert_eq!(t.v_total, 1111);
+        assert_eq!(t.h_front_porch, 8);
+        assert_eq!(t.h_sync_width, 32);
+        assert_eq!(t.v_front_porch, 17);
+        assert_eq!(t.v_sync_width, 8);
     }
 
     #[test]

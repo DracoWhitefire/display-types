@@ -87,13 +87,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `compute_type_ix_timing(width, height, refresh_rate, algorithm) -> Option<ComputedTiming>`
   in `display_types::timing` — evaluates the named CVT formula to derive pixel clock and
   blanking parameters from the four-tuple a DisplayID 2.x Type IX descriptor carries.
-  Currently implements **CVT-RB v1** (VESA CVT 1.1 §3.4) and **CVT-RB v2** (VESA CVT 1.2
-  §4). Reference values match the spec: RB v1 1920×1080@60 = 138.500 MHz, 2560×1440@60 =
-  241.500 MHz, 3840×2160@30 = 262.750 MHz; RB v2 1920×1080@60 = 133.320 MHz, 2560×1440@120 =
-  483.120 MHz, 3840×2160@60 = 522.614 MHz. RB v2 differs from v1 in halved H blanking
-  (80 vs 160 px), 1 kHz pixel-clock step (vs 0.25 MHz), wider V_SYNC (8 vs 4 lines), and
-  variable slack lives in V_FPORCH rather than V_BPORCH. CVT-RB v3 and the "reduced
-  blanking with CVT-RB1/RB2" variants return `None` (roadmap items in the piaf repo).
+  Currently implements **CVT-RB v1** (VESA CVT 1.1 §3.4), **CVT-RB v2** (VESA CVT 1.2
+  §4), and **CVT-RB v3** (VESA CVT 2.0 §4.5). Reference values match the spec: RB v1
+  1920×1080@60 = 138.500 MHz, 2560×1440@60 = 241.500 MHz, 3840×2160@30 = 262.750 MHz;
+  RB v2 1920×1080@60 = 133.320 MHz, 2560×1440@120 = 483.120 MHz, 3840×2160@60 =
+  522.614 MHz. RB v2 differs from v1 in halved H blanking (80 vs 160 px), 1 kHz
+  pixel-clock step (vs 0.25 MHz), wider V_SYNC (8 vs 4 lines), and variable slack
+  lives in V_FPORCH rather than V_BPORCH. RB v3 baseline timing is identical to v2 for
+  fixed-rate Type IX descriptors — the v3 spec additions (VRR vertical blanking
+  scaling, `ADDITIONAL_VBLANK_TIME` margin) apply to dynamic-rate operation and aren't
+  expressible through Type IX. The "reduced blanking with CVT-RB1/RB2" variants return
+  `None` (roadmap items in the piaf repo).
 - `ComputedTiming` struct — `pixel_clock_khz`, `h_total`, `v_total`, `h_front_porch`,
   `h_sync_width`, `v_front_porch`, `v_sync_width`. Designed to feed
   `VideoMode::with_detailed_timing` directly. Marked `#[non_exhaustive]`.
