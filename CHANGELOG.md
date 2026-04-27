@@ -72,6 +72,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   defaults to empty; `new()` initialises them accordingly.
 - `tag` module: V2 tag constants `V2_PRODUCT_ID` (0x20) through `V2_CONTAINER_ID` (0x29),
   `V2_VENDOR_SPECIFIC` (0x7E), and `V2_CTA_DISPLAYID` (0x81).
+- `CvtAlgorithm` enum — CVT formula selector for DisplayID 2.x Type IX (`0x24`) descriptors:
+  `CvtRb1`, `CvtRb2`, `CvtRb3`, `ReducedBlankingCvtRb1`, `ReducedBlankingCvtRb2`, plus
+  `Reserved(u8)` for spec-reserved encodings (`5`–`7`). Provides `from_bits(b)` decoding the
+  3-bit field; marked `#[non_exhaustive]`.
+- `VideoMode::cvt_algorithm: Option<CvtAlgorithm>` — populated from Type IX byte 0 bits 2:0;
+  `None` for all other sources. Consumers can derive `pixel_clock_khz` and blanking by
+  applying the named CVT formula (built-in evaluation is a roadmap item).
+- `VideoMode::y420: bool` — populated from Type IX byte 0 bit 4; defaults to `false` for all
+  other sources. Indicates a YCbCr 4:2:0-only mode at the source level (separate from CTA-861
+  Y420 VDB / capability map signalling).
+- `VideoMode::with_cvt_algorithm(alg)` and `VideoMode::with_y420(b)` — builders for the new
+  fields, consistent with `with_pixel_clock` / `with_source` / `with_detailed_timing`.
 - **SLSA Build Level 2 provenance** — release artifacts are attested via
   `actions/attest-build-provenance` and verified with
   `gh attestation verify <file> --repo DracoWhitefire/display-types`.

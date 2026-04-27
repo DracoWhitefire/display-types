@@ -41,6 +41,47 @@ pub enum StereoMode {
     SideBySideInterleaved,
 }
 
+/// CVT formula selector for DisplayID 2.x Type IX (`0x24`) Formula-Based Timings.
+///
+/// Decoded from byte 0 bits 2:0 of the 6-byte Type IX descriptor. Identifies which CVT
+/// variant the consumer should use to derive blanking parameters and pixel clock from the
+/// `(width, height, refresh_rate)` triple stored on [`VideoMode`]. Codes `5`–`7` are
+/// reserved by the DisplayID 2.x spec; unknown encodings are surfaced as
+/// [`CvtAlgorithm::Reserved`] so a future spec value does not break decoding.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CvtAlgorithm {
+    /// CVT-RB1 (encoding `0`).
+    CvtRb1,
+    /// CVT-RB2 (encoding `1`).
+    CvtRb2,
+    /// CVT-RB3 (encoding `2`).
+    CvtRb3,
+    /// Reduced blanking with CVT-RB1 (encoding `3`).
+    ReducedBlankingCvtRb1,
+    /// Reduced blanking with CVT-RB2 (encoding `4`).
+    ReducedBlankingCvtRb2,
+    /// Spec-reserved encoding (`5`–`7`) preserved verbatim so unknown values do not block
+    /// decoding of the rest of the descriptor.
+    Reserved(u8),
+}
+
+impl CvtAlgorithm {
+    /// Decodes the 3-bit CVT algorithm field (Type IX descriptor byte 0 bits 2:0).
+    /// Upper bits of the input are ignored.
+    pub const fn from_bits(b: u8) -> Self {
+        match b & 0x07 {
+            0 => Self::CvtRb1,
+            1 => Self::CvtRb2,
+            2 => Self::CvtRb3,
+            3 => Self::ReducedBlankingCvtRb1,
+            4 => Self::ReducedBlankingCvtRb2,
+            other => Self::Reserved(other),
+        }
+    }
+}
+
 /// Sync signal definition decoded from DTD byte 17 bits 4–1.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -304,6 +345,13 @@ pub struct VideoMode {
     ///
     /// `None` for modes constructed directly via [`VideoMode::new`] without a table lookup.
     pub source: Option<ModeSource>,
+    /// CVT formula selector for DisplayID 2.x Type IX timings (`None` for all other sources).
+    /// Consumers can use this to derive blanking and pixel clock from `(width, height,
+    /// refresh_rate)` via the named CVT variant.
+    pub cvt_algorithm: Option<CvtAlgorithm>,
+    /// `true` when the timing is YCbCr 4:2:0 only (DisplayID 2.x Type IX byte 0 bit 4).
+    /// Defaults to `false` for all non-Type-IX sources.
+    pub y420: bool,
 }
 
 impl VideoMode {
@@ -347,6 +395,22 @@ impl VideoMode {
     /// ```
     pub fn with_pixel_clock(mut self, pixel_clock_khz: u32) -> Self {
         self.pixel_clock_khz = Some(pixel_clock_khz);
+        self
+    }
+
+    /// Sets the CVT formula selector, returning the updated mode. Used by DisplayID 2.x
+    /// Type IX (`0x24`) descriptors which signal a CVT variant alongside `(width, height,
+    /// refresh_rate)`.
+    pub fn with_cvt_algorithm(mut self, alg: CvtAlgorithm) -> Self {
+        self.cvt_algorithm = Some(alg);
+        self
+    }
+
+    /// Sets the YCbCr 4:2:0 flag, returning the updated mode. Used by DisplayID 2.x
+    /// Type IX (`0x24`) descriptors and by callers that derive Y420-only modes from
+    /// CTA-861 Y420 capability data.
+    pub fn with_y420(mut self, y420: bool) -> Self {
+        self.y420 = y420;
         self
     }
 

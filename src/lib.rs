@@ -79,11 +79,11 @@ pub use displayid::DisplayIdCapabilities;
 
 /// Consumer-facing capability types.
 pub mod capabilities;
+pub use capabilities::{
+    CvtAlgorithm, EdidVersion, ModeSource, RefreshRate, StereoMode, SyncDefinition, VideoMode,
+};
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use capabilities::{DisplayCapabilities, ExtensionData, ParseWarning};
-pub use capabilities::{
-    EdidVersion, ModeSource, RefreshRate, StereoMode, SyncDefinition, VideoMode,
-};
 pub use cea861::HdmiForumFrl;
 pub use transfer::TransferPointEncoding;
 #[cfg(any(feature = "alloc", feature = "std"))]
