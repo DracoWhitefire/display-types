@@ -1,4 +1,4 @@
-use crate::VideoMode;
+use crate::{CvtAlgorithm, RefreshRate, VideoMode};
 
 /// Returns the pixel clock in kHz for a [`VideoMode`].
 ///
@@ -89,6 +89,230 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(pixel_clock_khz(&mode), 0);
+    }
+}
+
+/// Pixel clock and blanking parameters computed from a CVT formula.
+///
+/// All fields are derived from `(width, height, refresh_rate, cvt_algorithm)`. Designed
+/// to feed [`VideoMode::with_detailed_timing`][crate::VideoMode::with_detailed_timing]
+/// directly: the five fields it carries map 1:1 onto that builder's
+/// `pixel_clock_khz` / `h_front_porch` / `h_sync_width` / `v_front_porch` / `v_sync_width`
+/// arguments. `h_total` and `v_total` are exposed for sanity checks (e.g. bandwidth
+/// estimation against the CVT-rounded clock).
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ComputedTiming {
+    /// Pixel clock in kHz, rounded down to the algorithm's clock step (CVT-RB v1: 250 kHz).
+    pub pixel_clock_khz: u32,
+    /// `width + horizontal blanking`. Useful for bandwidth checks.
+    pub h_total: u16,
+    /// `height + vertical blanking`. Useful for bandwidth checks.
+    pub v_total: u16,
+    /// Horizontal front porch in pixels.
+    pub h_front_porch: u16,
+    /// Horizontal sync pulse width in pixels.
+    pub h_sync_width: u16,
+    /// Vertical front porch in lines.
+    pub v_front_porch: u16,
+    /// Vertical sync pulse width in lines.
+    pub v_sync_width: u16,
+}
+
+// CVT-RB v1 constants (VESA CVT 1.1 §3.4 "Reduced Blanking" timing).
+const RB_V1_CLOCK_STEP_KHZ: u32 = 250; // 0.25 MHz pixel-clock granularity
+const RB_V1_MIN_V_BLANK_US: u32 = 460; // microseconds, fixed
+const RB_V1_H_BLANK: u16 = 160; // pixels, fixed total H blanking
+const RB_V1_H_SYNC: u16 = 32; // pixels, fixed
+const RB_V1_H_BPORCH: u16 = 80; // pixels, fixed
+const RB_V1_H_FPORCH: u16 = RB_V1_H_BLANK - RB_V1_H_SYNC - RB_V1_H_BPORCH; // 48
+const RB_V1_V_FPORCH: u16 = 3; // lines, fixed
+const RB_V1_V_SYNC: u16 = 4; // lines, fixed
+const RB_V1_MIN_V_BPORCH: u16 = 6; // lines, lower bound
+
+/// Computes pixel clock and blanking parameters for a DisplayID 2.x Type IX
+/// (Formula-Based Timing) descriptor using the named CVT variant.
+///
+/// Returns `None` for:
+/// - degenerate input (`width == 0`, `height == 0`, non-positive or non-finite refresh rate)
+/// - algorithms not yet implemented (currently CVT-RB v2/v3 and the "reduced blanking with
+///   CVT-RB1/RB2" encodings; see `doc/roadmap.md` in the piaf repo)
+/// - the `Reserved(_)` algorithm encoding
+///
+/// The returned [`ComputedTiming`] feeds [`VideoMode::with_detailed_timing`] directly.
+///
+/// # Algorithm coverage
+///
+/// | `CvtAlgorithm` variant       | Status |
+/// |------------------------------|--------|
+/// | `CvtRb1`                     | implemented (VESA CVT 1.1 §3.4) |
+/// | `CvtRb2`                     | not yet — returns `None` |
+/// | `CvtRb3`                     | not yet — returns `None` |
+/// | `ReducedBlankingCvtRb1`      | not yet — returns `None` |
+/// | `ReducedBlankingCvtRb2`      | not yet — returns `None` |
+/// | `Reserved(_)`                | always `None` |
+pub fn compute_type_ix_timing(
+    width: u16,
+    height: u16,
+    refresh_rate: RefreshRate,
+    algorithm: CvtAlgorithm,
+) -> Option<ComputedTiming> {
+    match algorithm {
+        CvtAlgorithm::CvtRb1 => cvt_rb_v1(width, height, refresh_rate),
+        // CVT-RB v2, v3, and the "reduced blanking with CVT-RB1/RB2" variants are not
+        // yet implemented. Reserved(_) values are by definition unevaluable.
+        _ => None,
+    }
+}
+
+/// CVT-RB v1 evaluator. See [`compute_type_ix_timing`] for the public entry point.
+fn cvt_rb_v1(width: u16, height: u16, refresh_rate: RefreshRate) -> Option<ComputedTiming> {
+    if width == 0 || height == 0 {
+        return None;
+    }
+    let v_field_rate_hz = refresh_rate.as_f64();
+    if !v_field_rate_hz.is_finite() || v_field_rate_hz <= 0.0 {
+        return None;
+    }
+
+    let v_active = u32::from(height);
+    let frame_period_us = 1_000_000.0 / v_field_rate_hz;
+
+    // Horizontal line period estimate, used to derive how many lines fit in the fixed
+    // 460 µs minimum vertical blanking.
+    let h_period_est_us = (frame_period_us - f64::from(RB_V1_MIN_V_BLANK_US))
+        / f64::from(v_active + u32::from(RB_V1_V_FPORCH));
+    if h_period_est_us <= 0.0 {
+        return None; // refresh too high to fit RB1's minimum blanking budget
+    }
+
+    let vbi_lines = (f64::from(RB_V1_MIN_V_BLANK_US) / h_period_est_us).ceil() as u32;
+    let rb_min_vbi =
+        u32::from(RB_V1_V_FPORCH) + u32::from(RB_V1_V_SYNC) + u32::from(RB_V1_MIN_V_BPORCH);
+    let actual_vbi_lines = vbi_lines.max(rb_min_vbi);
+
+    let v_total = v_active + actual_vbi_lines;
+    let h_total = u32::from(width) + u32::from(RB_V1_H_BLANK);
+
+    // Pixel clock: V_FIELD_RATE × V_TOTAL × H_TOTAL, floored to the 250 kHz step.
+    let pixel_clock_hz = v_field_rate_hz * f64::from(v_total) * f64::from(h_total);
+    let pixel_clock_khz_steps =
+        (pixel_clock_hz / 1000.0 / f64::from(RB_V1_CLOCK_STEP_KHZ)).floor() as u32;
+    let pixel_clock_khz = pixel_clock_khz_steps * RB_V1_CLOCK_STEP_KHZ;
+
+    // Sanity: H_TOTAL and V_TOTAL must fit in u16 for VideoMode.
+    let h_total = u16::try_from(h_total).ok()?;
+    let v_total = u16::try_from(v_total).ok()?;
+
+    Some(ComputedTiming {
+        pixel_clock_khz,
+        h_total,
+        v_total,
+        h_front_porch: RB_V1_H_FPORCH,
+        h_sync_width: RB_V1_H_SYNC,
+        v_front_porch: RB_V1_V_FPORCH,
+        v_sync_width: RB_V1_V_SYNC,
+    })
+}
+
+#[cfg(test)]
+mod cvt_tests {
+    use super::*;
+
+    #[test]
+    fn cvt_rb_v1_1920x1080_at_60() {
+        // Canonical CVT-RB v1 mode. VESA-published value: 138.500 MHz pixel clock,
+        // h_total = 2080, v_total = 1111.
+        let t = compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb1)
+            .expect("CVT-RB v1 must produce a timing");
+        assert_eq!(t.pixel_clock_khz, 138_500);
+        assert_eq!(t.h_total, 2080);
+        assert_eq!(t.v_total, 1111);
+        assert_eq!(t.h_front_porch, 48);
+        assert_eq!(t.h_sync_width, 32);
+        assert_eq!(t.v_front_porch, 3);
+        assert_eq!(t.v_sync_width, 4);
+    }
+
+    #[test]
+    fn cvt_rb_v1_2560x1440_at_60() {
+        // CVT-RB v1 reference: 241.500 MHz, h_total = 2720, v_total = 1481.
+        let t = compute_type_ix_timing(2560, 1440, RefreshRate::integral(60), CvtAlgorithm::CvtRb1)
+            .expect("CVT-RB v1 must produce a timing");
+        assert_eq!(t.pixel_clock_khz, 241_500);
+        assert_eq!(t.h_total, 2720);
+        assert_eq!(t.v_total, 1481);
+    }
+
+    #[test]
+    fn cvt_rb_v1_3840x2160_at_30() {
+        // CVT-RB v1 reference: 262.750 MHz, h_total = 4000, v_total = 2191.
+        let t = compute_type_ix_timing(3840, 2160, RefreshRate::integral(30), CvtAlgorithm::CvtRb1)
+            .expect("CVT-RB v1 must produce a timing");
+        assert_eq!(t.pixel_clock_khz, 262_750);
+        assert_eq!(t.h_total, 4000);
+        assert_eq!(t.v_total, 2191);
+    }
+
+    #[test]
+    fn cvt_rb_v1_zero_width_returns_none() {
+        assert!(
+            compute_type_ix_timing(0, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb1)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn cvt_rb_v1_zero_height_returns_none() {
+        assert!(
+            compute_type_ix_timing(1920, 0, RefreshRate::integral(60), CvtAlgorithm::CvtRb1)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn cvt_rb_v1_unreachable_refresh_returns_none() {
+        // Refresh so high that frame period is below the 460 µs RB minimum.
+        // 1/3000 s = 333 µs < 460 µs → no time for active video.
+        assert!(
+            compute_type_ix_timing(
+                1920,
+                1080,
+                RefreshRate::integral(3000),
+                CvtAlgorithm::CvtRb1
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn cvt_rb_v2_not_yet_implemented_returns_none() {
+        assert!(
+            compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb2)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn cvt_rb_v3_not_yet_implemented_returns_none() {
+        assert!(
+            compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb3)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn reserved_algorithm_returns_none() {
+        assert!(
+            compute_type_ix_timing(
+                1920,
+                1080,
+                RefreshRate::integral(60),
+                CvtAlgorithm::Reserved(7)
+            )
+            .is_none()
+        );
     }
 }
 

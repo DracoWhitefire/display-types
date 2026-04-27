@@ -84,6 +84,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Y420 VDB / capability map signalling).
 - `VideoMode::with_cvt_algorithm(alg)` and `VideoMode::with_y420(b)` — builders for the new
   fields, consistent with `with_pixel_clock` / `with_source` / `with_detailed_timing`.
+- `compute_type_ix_timing(width, height, refresh_rate, algorithm) -> Option<ComputedTiming>`
+  in `display_types::timing` — evaluates the named CVT formula to derive pixel clock and
+  blanking parameters from the four-tuple a DisplayID 2.x Type IX descriptor carries.
+  Currently implements **CVT-RB v1** (VESA CVT 1.1 §3.4); reference values for 1920×1080@60
+  (138.500 MHz), 2560×1440@60 (241.500 MHz), and 3840×2160@30 (262.750 MHz) match the VESA
+  spec exactly. CVT-RB v2/v3 and the "reduced blanking with CVT-RB1/RB2" variants return
+  `None` (roadmap items in the piaf repo).
+- `ComputedTiming` struct — `pixel_clock_khz`, `h_total`, `v_total`, `h_front_porch`,
+  `h_sync_width`, `v_front_porch`, `v_sync_width`. Designed to feed
+  `VideoMode::with_detailed_timing` directly. Marked `#[non_exhaustive]`.
 - **SLSA Build Level 2 provenance** — release artifacts are attested via
   `actions/attest-build-provenance` and verified with
   `gh attestation verify <file> --repo DracoWhitefire/display-types`.
