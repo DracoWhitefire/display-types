@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn new_roundtrips_all_fields() {
-        let mode = VideoMode::new(3840, 2160, 60, false);
+        let mode = VideoMode::new(3840, 2160, 60u32, false);
         let cfg = ResolvedDisplayConfig::new(
             mode.clone(),
             ColorFormat::Rgb444,
@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     fn tmds_config_uses_not_supported_frl() {
-        let mode = VideoMode::new(1920, 1080, 60, false);
+        let mode = VideoMode::new(1920, 1080, 60u32, false);
         let cfg = ResolvedDisplayConfig::new(
             mode,
             ColorFormat::Rgb444,

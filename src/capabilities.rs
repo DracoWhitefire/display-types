@@ -41,6 +41,62 @@ pub enum StereoMode {
     SideBySideInterleaved,
 }
 
+/// CVT formula selector for DisplayID 2.x Type IX (`0x24`) and Type V (`0x11`)
+/// Formula-Based Timings.
+///
+/// Decoded from byte 0 bits 2:0. Identifies which CVT variant the consumer should use
+/// to derive blanking parameters and pixel clock from the `(width, height, refresh_rate)`
+/// triple stored on [`VideoMode`]. Codes `3`–`7` are reserved by the DisplayID 2.x spec;
+/// unknown encodings are surfaced as [`CvtAlgorithm::Reserved`] so a future spec value
+/// does not block decoding of the rest of the descriptor.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CvtAlgorithm {
+    /// Standard CVT (no reduced blanking) (encoding `0`).
+    Cvt,
+    /// CVT-RB v1 (encoding `1`).
+    CvtRb,
+    /// CVT-R2 / CVT-RB v2 (encoding `2`).
+    CvtR2,
+    /// Spec-reserved encoding (`3`–`7`) preserved verbatim so unknown values do not block
+    /// decoding of the rest of the descriptor.
+    Reserved(u8),
+}
+
+impl CvtAlgorithm {
+    /// Decodes the 3-bit CVT algorithm field (Type V/IX descriptor byte 0 bits 2:0).
+    /// Upper bits of the input are ignored.
+    pub const fn from_bits(b: u8) -> Self {
+        match b & 0x07 {
+            0 => Self::Cvt,
+            1 => Self::CvtRb,
+            2 => Self::CvtR2,
+            other => Self::Reserved(other),
+        }
+    }
+}
+
+/// Stereo timing mode decoded from Type V (`0x11`) and Type IX (`0x24`) descriptor byte 0
+/// bits 6:5. Indicates whether the timing is for a mono display, stereo-only, or
+/// user-selectable.
+///
+/// This is distinct from [`StereoMode`], which describes the specific stereo viewing method
+/// decoded from a Detailed Timing Descriptor.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypeIxStereoMode {
+    /// Mono timing (bits 6:5 = `0b00`).
+    Mono,
+    /// 3D stereo timing (bits 6:5 = `0b01`).
+    Stereo,
+    /// Mono or 3D stereo depending on user action (bits 6:5 = `0b10`).
+    MonoOrStereoByUser,
+    /// Reserved (bits 6:5 = `0b11`).
+    Reserved,
+}
+
 /// Sync signal definition decoded from DTD byte 17 bits 4–1.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -95,6 +151,174 @@ pub enum ModeSource {
     DtdIndex(u8),
 }
 
+/// A display refresh rate expressed as an exact rational number (numerator/denominator in Hz).
+///
+/// Integer rates (60 Hz, 120 Hz, etc.) use `denom = 1`. NTSC-derived fractional rates use
+/// `denom = 1001` (e.g. 60000/1001 ≈ 59.94 Hz, 24000/1001 ≈ 23.976 Hz).
+///
+/// Always stored in lowest terms: all constructors (including `Deserialize`) apply GCD
+/// reduction, so `==`, `Hash`, and `Ord` are consistent and a given rate has exactly one
+/// canonical representation.
+///
+/// Use [`RefreshRate::integral`] for integer rates and [`RefreshRate::fractional`] for all
+/// others. `From<u32>` and `From<u16>` are implemented as `integral` conversions, so
+/// integer literals work wherever `impl Into<RefreshRate>` is accepted.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RefreshRateRepr", into = "RefreshRateRepr")
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RefreshRate {
+    numer: u32,
+    denom: u32,
+}
+
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+struct RefreshRateRepr {
+    numer: u32,
+    denom: u32,
+}
+
+#[cfg(feature = "serde")]
+impl core::convert::TryFrom<RefreshRateRepr> for RefreshRate {
+    type Error = &'static str;
+    fn try_from(r: RefreshRateRepr) -> Result<Self, Self::Error> {
+        if r.denom == 0 {
+            Err("RefreshRate denominator must not be zero")
+        } else {
+            Ok(Self::fractional(r.numer, r.denom))
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<RefreshRate> for RefreshRateRepr {
+    fn from(r: RefreshRate) -> Self {
+        Self {
+            numer: r.numer,
+            denom: r.denom,
+        }
+    }
+}
+
+fn gcd(mut a: u32, mut b: u32) -> u32 {
+    while b != 0 {
+        let t = b;
+        b = a % b;
+        a = t;
+    }
+    a
+}
+
+fn gcd_u64(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let t = b;
+        b = a % b;
+        a = t;
+    }
+    a
+}
+
+impl RefreshRate {
+    /// Constructs an integer refresh rate (e.g. `RefreshRate::integral(60)` → 60/1).
+    pub fn integral(hz: u32) -> Self {
+        Self {
+            numer: hz,
+            denom: 1,
+        }
+    }
+
+    /// Constructs an exact rational refresh rate, reduced to lowest terms.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `denom` is zero.
+    pub fn fractional(numer: u32, denom: u32) -> Self {
+        assert!(denom != 0, "RefreshRate denominator must not be zero");
+        let g = gcd(numer, denom);
+        Self {
+            numer: numer / g,
+            denom: denom / g,
+        }
+    }
+
+    /// Constructs a refresh rate from a `numer/denom` ratio in Hz, reduced to lowest terms.
+    ///
+    /// Useful when the rate is computed from intermediate values that exceed `u32`, such as
+    /// `pixel_clock_hz / (h_total × v_total)` for detailed-timing descriptors. Reduces in
+    /// `u64` then narrows to `u32`.
+    ///
+    /// Returns `None` if `denom` is zero or if the reduced fraction does not fit in `u32`.
+    ///
+    /// ```
+    /// use display_types::RefreshRate;
+    ///
+    /// // NTSC-style fractional rate computed from a large numerator and denominator.
+    /// let r = RefreshRate::from_ratio(60_000_000, 1_001_000).unwrap();
+    /// assert_eq!(r, RefreshRate::fractional(60_000, 1_001));
+    /// ```
+    pub fn from_ratio(numer: u64, denom: u64) -> Option<Self> {
+        if denom == 0 {
+            return None;
+        }
+        let g = gcd_u64(numer, denom);
+        let n = u32::try_from(numer / g).ok()?;
+        let d = u32::try_from(denom / g).ok()?;
+        Some(Self { numer: n, denom: d })
+    }
+
+    /// Numerator of the reduced fraction, in Hz.
+    pub fn numer(self) -> u32 {
+        self.numer
+    }
+
+    /// Denominator of the reduced fraction (1 for integer rates, 1001 for NTSC-derived rates).
+    pub fn denom(self) -> u32 {
+        self.denom
+    }
+
+    /// Returns the refresh rate as `f64`.
+    pub fn as_f64(self) -> f64 {
+        self.numer as f64 / self.denom as f64
+    }
+}
+
+impl PartialOrd for RefreshRate {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl core::cmp::Ord for RefreshRate {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        (self.numer as u64 * other.denom as u64).cmp(&(other.numer as u64 * self.denom as u64))
+    }
+}
+
+impl core::fmt::Display for RefreshRate {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.denom == 1 {
+            write!(f, "{} Hz", self.numer)
+        } else {
+            write!(f, "{}/{} Hz", self.numer, self.denom)
+        }
+    }
+}
+
+impl From<u32> for RefreshRate {
+    fn from(hz: u32) -> Self {
+        Self::integral(hz)
+    }
+}
+
+impl From<u16> for RefreshRate {
+    fn from(hz: u16) -> Self {
+        Self::integral(hz as u32)
+    }
+}
+
 /// A display video mode expressed as resolution, refresh rate, and scan type.
 ///
 /// Use [`VideoMode::new`] to construct a mode with only identity fields (the common case
@@ -109,8 +333,9 @@ pub struct VideoMode {
     pub width: u16,
     /// Vertical resolution in pixels.
     pub height: u16,
-    /// Refresh rate in Hz.
-    pub refresh_rate: u16,
+    /// Refresh rate as an exact rational number in Hz, or `None` when unspecified
+    /// (e.g. a default-constructed `VideoMode` whose rate has not been set).
+    pub refresh_rate: Option<RefreshRate>,
     /// `true` for interlaced modes; `false` for progressive (the common case).
     pub interlaced: bool,
     /// Horizontal front porch in pixels (0 when not decoded from a DTD).
@@ -135,6 +360,21 @@ pub struct VideoMode {
     ///
     /// `None` for modes constructed directly via [`VideoMode::new`] without a table lookup.
     pub source: Option<ModeSource>,
+    /// CVT formula selector for DisplayID 2.x Type V/IX timings (`None` for all other sources).
+    /// Consumers can use this to derive blanking and pixel clock from `(width, height,
+    /// refresh_rate)` via the named CVT variant.
+    pub cvt_algorithm: Option<CvtAlgorithm>,
+    /// `true` when the timing is YCbCr 4:2:0 only. Set from CTA-861 Y420 capability data
+    /// and from DisplayID 2.x Type VII byte 3 bit 7 (block revision ≥ 2).
+    /// Defaults to `false` for all other sources.
+    pub y420: bool,
+    /// `true` when NTSC-style fractional refresh rate (× 1000/1001) is supported alongside
+    /// this timing. Decoded from Type V and Type IX descriptor byte 0 bit 3.
+    /// Defaults to `false` for all other sources.
+    pub ntsc_fractional_refresh: bool,
+    /// Per-mode stereo indicator from Type V (`0x11`) and Type IX (`0x24`) descriptor byte 0
+    /// bits 6:5. `None` for all other timing sources.
+    pub type_ix_stereo: Option<TypeIxStereoMode>,
 }
 
 impl VideoMode {
@@ -145,11 +385,16 @@ impl VideoMode {
     /// [`StereoMode::None`], and `sync` defaults to `None`. Use
     /// [`with_detailed_timing`][Self::with_detailed_timing] to set those fields when
     /// decoding from a Detailed Timing Descriptor.
-    pub fn new(width: u16, height: u16, refresh_rate: u16, interlaced: bool) -> Self {
+    pub fn new(
+        width: u16,
+        height: u16,
+        refresh_rate: impl Into<RefreshRate>,
+        interlaced: bool,
+    ) -> Self {
         Self {
             width,
             height,
-            refresh_rate,
+            refresh_rate: Some(refresh_rate.into()),
             interlaced,
             ..Self::default()
         }
@@ -168,11 +413,41 @@ impl VideoMode {
     /// use display_types::pixel_clock_khz;
     ///
     /// // Custom panel: 1920×1200 @ 60 Hz, exact pixel clock from PLL register.
-    /// let mode = VideoMode::new(1920, 1200, 60, false).with_pixel_clock(154_000);
+    /// let mode = VideoMode::new(1920, 1200, 60u32, false).with_pixel_clock(154_000);
     /// assert_eq!(pixel_clock_khz(&mode), 154_000);
     /// ```
     pub fn with_pixel_clock(mut self, pixel_clock_khz: u32) -> Self {
         self.pixel_clock_khz = Some(pixel_clock_khz);
+        self
+    }
+
+    /// Sets the CVT formula selector, returning the updated mode. Used by DisplayID 2.x
+    /// Type IX (`0x24`) descriptors which signal a CVT variant alongside `(width, height,
+    /// refresh_rate)`.
+    pub fn with_cvt_algorithm(mut self, alg: CvtAlgorithm) -> Self {
+        self.cvt_algorithm = Some(alg);
+        self
+    }
+
+    /// Sets the YCbCr 4:2:0 flag, returning the updated mode. Used by DisplayID 2.x
+    /// Type VII decoders (block revision ≥ 2) and by callers that derive Y420-only modes
+    /// from CTA-861 Y420 capability data.
+    pub fn with_y420(mut self, y420: bool) -> Self {
+        self.y420 = y420;
+        self
+    }
+
+    /// Sets the NTSC fractional refresh flag, returning the updated mode. Used by
+    /// Type V and Type IX decoders when byte 0 bit 3 is set.
+    pub fn with_ntsc_fractional_refresh(mut self, supported: bool) -> Self {
+        self.ntsc_fractional_refresh = supported;
+        self
+    }
+
+    /// Sets the per-mode stereo indicator from Type V/IX byte 0 bits 6:5, returning the
+    /// updated mode.
+    pub fn with_type_ix_stereo(mut self, stereo: TypeIxStereoMode) -> Self {
+        self.type_ix_stereo = Some(stereo);
         self
     }
 
@@ -449,5 +724,182 @@ impl DisplayCapabilities {
             // Calling `.as_any()` on `&Arc<dyn ExtensionData>` would hit the blanket
             // `ExtensionData` impl for Arc itself and return the wrong TypeId.
             .and_then(|(_, data)| (**data).as_any().downcast_ref::<T>())
+    }
+
+    /// Removes the extension data entry for `tag` and returns it as `T`.
+    ///
+    /// Intended for take-mutate-restore patterns where multiple input sources contribute
+    /// to a single extension's capability struct (e.g. CTA-861 data delivered both via
+    /// the CEA-861 extension block and via the DisplayID 2.x CTA DisplayID block 0x81).
+    /// The caller mutates the returned value and stores it back with
+    /// [`set_extension_data`][Self::set_extension_data].
+    ///
+    /// Returns `None` if no entry exists for `tag` or the stored type is not `T`.
+    /// When the type does not match, the entry is left in place.
+    pub fn take_extension_data<T: ExtensionData + Clone>(&mut self, tag: u8) -> Option<T> {
+        let pos = self.extension_data.iter().position(|(t, _)| *t == tag)?;
+        // Peek before removing — type mismatch must not destroy the entry.
+        (*self.extension_data[pos].1).as_any().downcast_ref::<T>()?;
+        let (_, arc) = self.extension_data.remove(pos);
+        (*arc).as_any().downcast_ref::<T>().cloned()
+    }
+}
+
+#[cfg(test)]
+mod refresh_rate_tests {
+    use super::*;
+
+    #[test]
+    fn integral_has_unit_denominator() {
+        let r = RefreshRate::integral(60);
+        assert_eq!(r.numer(), 60);
+        assert_eq!(r.denom(), 1);
+    }
+
+    #[test]
+    fn fractional_reduces_to_lowest_terms() {
+        let r = RefreshRate::fractional(120, 2);
+        assert_eq!(r.numer(), 60);
+        assert_eq!(r.denom(), 1);
+
+        let ntsc = RefreshRate::fractional(60000, 1001);
+        assert_eq!(ntsc.numer(), 60000);
+        assert_eq!(ntsc.denom(), 1001);
+    }
+
+    #[test]
+    #[should_panic(expected = "RefreshRate denominator must not be zero")]
+    fn fractional_panics_on_zero_denominator() {
+        let _ = RefreshRate::fractional(60, 0);
+    }
+
+    #[test]
+    fn equality_is_canonical() {
+        assert_eq!(RefreshRate::integral(60), RefreshRate::fractional(120, 2));
+        assert_ne!(
+            RefreshRate::integral(60),
+            RefreshRate::fractional(60000, 1001)
+        );
+    }
+
+    #[test]
+    fn ord_uses_cross_multiplication() {
+        let ntsc = RefreshRate::fractional(60000, 1001);
+        let sixty = RefreshRate::integral(60);
+        let fiftynine = RefreshRate::integral(59);
+        assert!(ntsc < sixty);
+        assert!(ntsc > fiftynine);
+        assert_eq!(
+            sixty.cmp(&RefreshRate::fractional(120, 2)),
+            core::cmp::Ordering::Equal
+        );
+    }
+
+    #[test]
+    #[cfg(any(feature = "alloc", feature = "std"))]
+    fn display_formats_integer_and_fractional() {
+        extern crate alloc;
+        use alloc::format;
+        assert_eq!(format!("{}", RefreshRate::integral(60)), "60 Hz");
+        assert_eq!(
+            format!("{}", RefreshRate::fractional(60000, 1001)),
+            "60000/1001 Hz"
+        );
+    }
+
+    #[test]
+    fn from_integer_uses_integral() {
+        let from_u32: RefreshRate = 144u32.into();
+        let from_u16: RefreshRate = 60u16.into();
+        assert_eq!(from_u32, RefreshRate::integral(144));
+        assert_eq!(from_u16, RefreshRate::integral(60));
+    }
+
+    #[test]
+    fn as_f64_normalises() {
+        let delta = RefreshRate::fractional(60000, 1001).as_f64() - 59.94;
+        assert!(delta.abs() < 0.01);
+    }
+
+    #[test]
+    fn from_ratio_reduces_large_values() {
+        // 1080p@59.94: pc = 148_352 kHz, h_total × v_total = 2200 × 1125 = 2_475_000
+        // 148_352_000 / 2_475_000 = 59.9402… (non-canonical reduction).
+        let r = RefreshRate::from_ratio(148_352_000, 2_475_000).unwrap();
+        // gcd(148_352_000, 2_475_000) = 1000 → 148_352 / 2_475
+        assert_eq!(r.numer(), 148_352);
+        assert_eq!(r.denom(), 2_475);
+    }
+
+    #[test]
+    fn from_ratio_canonicalises_integer_rate() {
+        // 60 Hz exact: pc = 148_500 kHz, total = 2_475_000 → 148_500_000 / 2_475_000 = 60.
+        let r = RefreshRate::from_ratio(148_500_000, 2_475_000).unwrap();
+        assert_eq!(r, RefreshRate::integral(60));
+    }
+
+    #[test]
+    fn from_ratio_returns_none_on_zero_denominator() {
+        assert_eq!(RefreshRate::from_ratio(60, 0), None);
+    }
+
+    #[test]
+    fn from_ratio_handles_zero_numerator() {
+        let r = RefreshRate::from_ratio(0, 1000).unwrap();
+        assert_eq!(r, RefreshRate::integral(0));
+    }
+
+    #[test]
+    fn from_ratio_returns_none_when_reduced_exceeds_u32() {
+        // Coprime values both ≥ 2^32 cannot reduce into u32.
+        let big = u64::from(u32::MAX) + 2;
+        assert_eq!(RefreshRate::from_ratio(big, big - 1), None);
+    }
+}
+
+#[cfg(test)]
+#[cfg(any(feature = "alloc", feature = "std"))]
+mod extension_data_tests {
+    use super::*;
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct Foo(u32);
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct Bar(u32);
+
+    #[test]
+    fn take_extension_data_returns_and_removes_entry() {
+        let mut caps = DisplayCapabilities::default();
+        caps.set_extension_data(0x70, Foo(42));
+        let taken: Foo = caps.take_extension_data(0x70).expect("entry present");
+        assert_eq!(taken, Foo(42));
+        assert!(caps.get_extension_data::<Foo>(0x70).is_none());
+    }
+
+    #[test]
+    fn take_extension_data_returns_none_for_missing_tag() {
+        let mut caps = DisplayCapabilities::default();
+        assert!(caps.take_extension_data::<Foo>(0x70).is_none());
+    }
+
+    #[test]
+    fn take_extension_data_leaves_entry_on_type_mismatch() {
+        let mut caps = DisplayCapabilities::default();
+        caps.set_extension_data(0x70, Foo(7));
+        // Wrong type — must return None and not destroy the entry.
+        assert!(caps.take_extension_data::<Bar>(0x70).is_none());
+        // Entry still retrievable as the original type.
+        assert_eq!(caps.get_extension_data::<Foo>(0x70), Some(&Foo(7)));
+    }
+
+    #[test]
+    fn take_extension_data_round_trip_via_set() {
+        let mut caps = DisplayCapabilities::default();
+        caps.set_extension_data(0x70, Foo(1));
+        let mut foo: Foo = caps.take_extension_data(0x70).unwrap();
+        foo.0 += 1;
+        caps.set_extension_data(0x70, foo);
+        assert_eq!(caps.get_extension_data::<Foo>(0x70), Some(&Foo(2)));
     }
 }

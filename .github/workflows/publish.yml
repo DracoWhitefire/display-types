@@ -62,22 +62,22 @@ jobs:
         run: cargo fmt --check
 
       - name: Clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --locked -- -D warnings
 
       - name: Docs
-        run: cargo rustdoc -- -D missing_docs
+        run: cargo rustdoc --locked -- -D missing_docs
 
       - name: Test (std)
-        run: cargo test
+        run: cargo test --locked
 
       - name: Test (std + serde)
-        run: cargo test --features serde
+        run: cargo test --locked --features serde
 
       - name: Build (alloc only)
-        run: cargo build --no-default-features --features alloc
+        run: cargo build --locked --no-default-features --features alloc
 
       - name: Build (no_std)
-        run: cargo build --no-default-features
+        run: cargo build --locked --no-default-features
 
       # Materialise the .crate package before signing; cargo publish would
       # do this internally, but we need the file path for the attestation.

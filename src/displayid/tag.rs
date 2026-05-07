@@ -1,7 +1,7 @@
-//! DisplayID 1.x data block tag constants.
+//! DisplayID 1.x and 2.x data block tag constants.
 //!
-//! Each constant corresponds to a data block type defined in the DisplayID 1.x
-//! specification. Tags are the first byte of the 3-byte data block header.
+//! Each constant corresponds to a data block type defined in the DisplayID specification.
+//! Tags are the first byte of the 3-byte data block header.
 
 /// Product Identification Block (DisplayID 1.x §4.2).
 pub const PRODUCT_ID: u8 = 0x00;
@@ -68,3 +68,41 @@ pub const TILED_TOPOLOGY: u8 = 0x12;
 
 /// Video Timing Modes Type VI — Detailed Timings Block (DisplayID 1.x §4.7).
 pub const TYPE_VI_TIMING: u8 = 0x13;
+
+// ── DisplayID 2.x tag constants ──────────────────────────────────────────────
+
+/// Product Identification Block (DisplayID 2.x §4.2).
+pub const V2_PRODUCT_ID: u8 = 0x20;
+
+/// Display Parameters Block (DisplayID 2.x §4.3).
+pub const V2_DISPLAY_PARAMS: u8 = 0x21;
+
+/// Video Timing Modes Type VII — Detailed Timings Block (DisplayID 2.x §4.4.2).
+pub const V2_TYPE_VII_TIMING: u8 = 0x22;
+
+/// Video Timing Modes Type VIII — Enumerated Timing Code Block (DisplayID 2.x §4.4.3).
+pub const V2_TYPE_VIII_TIMING: u8 = 0x23;
+
+/// Video Timing Modes Type IX — Formula-Based Timings Block (DisplayID 2.x §4.4.4).
+pub const V2_TYPE_IX_TIMING: u8 = 0x24;
+
+/// Dynamic Video Timing Range Limits Block (DisplayID 2.x §4.5).
+pub const V2_DYNAMIC_TIMING_RANGE: u8 = 0x25;
+
+/// Display Interface Features Block (DisplayID 2.x §4.6).
+pub const V2_INTERFACE_FEATURES: u8 = 0x26;
+
+/// Stereo Display Interface Block (DisplayID 2.x §4.7).
+pub const V2_STEREO_INTERFACE: u8 = 0x27;
+
+/// Tiled Display Topology Block (DisplayID 2.x §4.8).
+pub const V2_TILED_TOPOLOGY: u8 = 0x28;
+
+/// ContainerID Block (DisplayID 2.x §4.9).
+pub const V2_CONTAINER_ID: u8 = 0x29;
+
+/// Vendor-Specific Block (DisplayID 2.x §4.10).
+pub const V2_VENDOR_SPECIFIC: u8 = 0x7E;
+
+/// CTA DisplayID Block (DisplayID 2.x §4.11).
+pub const V2_CTA_DISPLAYID: u8 = 0x81;

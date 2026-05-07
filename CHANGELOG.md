@@ -9,9 +9,153 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `DisplayCapabilities::take_extension_data<T>` — removes and returns a stored extension
+  data entry by tag for take-mutate-restore patterns where multiple input sources contribute
+  to a single extension's capability struct (e.g. CTA-861 data delivered both via the
+  CEA-861 extension block and via the DisplayID 2.x CTA DisplayID block 0x81). Requires
+  `T: ExtensionData + Clone`; the entry is left in place if the stored type does not match.
+- `RefreshRate` — exact rational refresh rate type replacing `VideoMode::refresh_rate: u16`.
+  Stored as `(numer: u32, denom: u32)` in lowest terms (fields private; use `numer()` /
+  `denom()` accessors). Constructors: `integral(hz: u32)`, `fractional(numer, denom)`, and
+  `from_ratio(numer: u64, denom: u64) -> Option<Self>` for computing rates from large
+  intermediate values such as `pixel_clock_hz / (h_total × v_total)`. `Deserialize` also
+  reduces via `fractional`. Implements `Ord` via cross-multiplication, `Display` as `"60 Hz"`
+  / `"60000/1001 Hz"`, and `From<u32>` / `From<u16>` for ergonomic construction. `as_f64()`
+  returns the normalised value. Deliberately does **not** implement `Default` — there is no
+  meaningful default refresh rate, and the field is now `Option<RefreshRate>` so an unset
+  rate has its own representation.
+- `ChromaticityPoint12` — 12-bit fixed-point chromaticity coordinate pair for DisplayID 2.x
+  block 0x21. Accessor methods `x()` and `y()` normalise to `[0.0, 1.0)` by dividing by 4096.
+- `Chromaticity12` — four `ChromaticityPoint12` values (three primaries and white point).
+- `DisplayParamsV2` — display parameters from 2.x block 0x21: factory-calibrated chromaticity,
+  IEEE 754 half-precision luminance (max full/10%, min as `Option<f32>`), color bit depth,
+  display technology, gamma EOTF, scan orientation, and audio jack flag.
+- `DisplayTechnology` enum — decodes byte 10 of block 0x21 into `Unspecified`, `Amlcd`,
+  `Amoled`, or `Other(u8)` for reserved/vendor-specific values. Provides `from_byte` /
+  `as_byte` for round-trippable decoding.
+- `ScanOrientation` enum — decodes bits 2:0 of byte 11 of block 0x21 into the eight
+  spec-defined fast-axis/slow-axis combinations (e.g. `LeftRightTopBottom` for conventional
+  raster order). Provides `from_bits` / `as_bits`.
+- `DynamicTimingRange` — dynamic timing range from 2.x block 0x25: min/max pixel clock in kHz
+  (3-byte LE, 1 kHz resolution), min/max vertical refresh rate in Hz (9-bit), VRR support flag.
+- `DisplayInterfaceFeatures` — interface features from 2.x block 0x26: per-encoding color depth
+  bitmasks (RGB, YCbCr 4:4:4/4:2:2/4:2:0), minimum 4:2:0 pixel rate, audio flags, and color
+  space/EOTF combination bitmask. Field doc comments now reference the source payload byte index.
+  Color depth fields use typed `bitflags!` wrappers `ColorDepthsFull` (RGB and YCbCr 4:4:4 —
+  6/8/10/12/14/16 bpc) and `ColorDepthsSubsampled` (YCbCr 4:2:2 and 4:2:0 — 8/10/12/14/16 bpc).
+  `audio_flags` and `color_space_eotf_combos` (renamed from `color_space_eotf_1` — the
+  `_1` suffix incorrectly implied sequel bytes; payload byte 6 is a single defined-combinations
+  bitmask) remain `u8` pending full spec typing.
+- `DisplayIdVendorSpecific` — envelope for 2.x block 0x7E: 3-byte IEEE OUI plus opaque
+  vendor-defined `data: Vec<u8>`. The crate does not interpret payload semantics; consumers
+  match on `oui` to dispatch to vendor-specific parsers (e.g. Dolby `00-D0-46`,
+  Microsoft `CA-12-5C`). `requires alloc` (or `std`).
+- `DisplayIdStereoInterfaceV2` — stereo display interface from 2.x block 0x27, alongside
+  supporting types `StereoTimingScopeV2` (4 variants from revision bits 7:6),
+  `StereoViewingMethodV2` (FieldSequential / SideBySide / PixelInterleaved / DualInterface /
+  MultiView / StackedFrame / Proprietary / Reserved with method-specific parameters),
+  `StereoEye` (Left / Right), and `DualInterfaceMirroring` (None / LeftRight / TopBottom /
+  Reserved). `FieldSequential` carries `eye_on_high_half: StereoEye` (parallel to
+  `SideBySide.left_half`) rather than a `right_eye_polarity_high: bool`. Inline timing-code
+  list (when present) is detectable via `DisplayIdStereoInterfaceV2::has_timing_codes` but
+  not currently parsed.
+- `Default` derive (or impl) on `DisplayParamsV2`, `DynamicTimingRange`,
+  `DisplayInterfaceFeatures`, and `DisplayIdStereoInterfaceV2`. Required to construct these
+  `#[non_exhaustive]` structs from downstream crates (struct expressions are forbidden across
+  crate boundaries); decoders use `Default::default()` plus field assignment.
+- `DisplayIdCapabilities` gains six new `Option` fields and one `Vec` field:
+  `manufacturer_oui: Option<[u8; 3]>`, `display_params_v2: Option<DisplayParamsV2>`,
+  `dynamic_timing_range: Option<DynamicTimingRange>`,
+  `interface_features: Option<DisplayInterfaceFeatures>`,
+  `stereo_interface_v2: Option<DisplayIdStereoInterfaceV2>`, `container_id: Option<[u8; 16]>`,
+  and `vendor_specific: Vec<DisplayIdVendorSpecific>`. Options default to `None`, the Vec
+  defaults to empty; `new()` initialises them accordingly.
+- `tag` module: V2 tag constants `V2_PRODUCT_ID` (0x20) through `V2_CONTAINER_ID` (0x29),
+  `V2_VENDOR_SPECIFIC` (0x7E), and `V2_CTA_DISPLAYID` (0x81).
+- `CvtAlgorithm` enum — CVT formula selector for DisplayID 2.x Type V (`0x11`) and Type IX
+  (`0x24`) descriptors: `Cvt` (encoding `0`, standard CVT, no reduced blanking), `CvtRb`
+  (encoding `1`, CVT-RB v1), `CvtR2` (encoding `2`, CVT-RB v2 / "CVT-R2"), plus
+  `Reserved(u8)` for spec-reserved encodings (`3`–`7`). Provides `from_bits(b)` decoding the
+  3-bit field; marked `#[non_exhaustive]`.
+- `TypeIxStereoMode` enum — per-mode stereo indicator decoded from Type V and Type IX
+  descriptor byte 0 bits 6:5: `Mono` (`0b00`), `Stereo` (`0b01`),
+  `MonoOrStereoByUser` (`0b10`), `Reserved` (`0b11`). Marked `#[non_exhaustive]`.
+- `VideoMode::cvt_algorithm: Option<CvtAlgorithm>` — populated from Type V/IX byte 0 bits 2:0;
+  `None` for all other sources.
+- `VideoMode::y420: bool` — `true` for YCbCr 4:2:0-only modes. Set by CTA-861 Y420 VDB /
+  capability map signalling and by DisplayID 2.x Type VII (block revision ≥ 2, byte 3 bit 7).
+  Defaults to `false` for all other sources.
+- `VideoMode::ntsc_fractional_refresh: bool` — `true` when NTSC-style fractional refresh
+  (× 1000/1001) is supported alongside this timing. Decoded from Type V and Type IX
+  descriptor byte 0 bit 3. Defaults to `false` for all other sources.
+- `VideoMode::type_ix_stereo: Option<TypeIxStereoMode>` — per-mode stereo indicator from
+  Type V/IX byte 0 bits 6:5. `None` for all other timing sources.
+- `VideoMode::with_cvt_algorithm(alg)`, `VideoMode::with_y420(b)`,
+  `VideoMode::with_ntsc_fractional_refresh(b)`, and `VideoMode::with_type_ix_stereo(s)` —
+  builders for the new fields, consistent with `with_pixel_clock` / `with_source` /
+  `with_detailed_timing`.
+- `compute_type_ix_timing(width, height, refresh_rate, algorithm) -> Option<ComputedTiming>`
+  in `display_types::timing` — evaluates the named CVT formula to derive pixel clock and
+  blanking parameters from the four-tuple a DisplayID 2.x Type IX descriptor carries.
+  Implements **CVT-RB v1** (`CvtRb`, VESA CVT 1.1 §3.4) and **CVT-RB v2 / CVT-R2**
+  (`CvtR2`, VESA CVT 1.2 §4). Reference values: RB v1 1920×1080@60 = 138.500 MHz,
+  2560×1440@60 = 241.500 MHz, 3840×2160@30 = 262.750 MHz; RB v2 1920×1080@60 =
+  133.320 MHz, 2560×1440@120 = 483.120 MHz, 3840×2160@60 = 522.614 MHz. RB v2 differs
+  from v1 in halved H blanking (80 vs 160 px), 1 kHz pixel-clock step (vs 0.25 MHz),
+  wider V_SYNC (8 vs 4 lines), and slack lives in V_FPORCH rather than V_BPORCH.
+  Standard CVT (`Cvt`) and reserved algorithm codes return `None`.
+- `ComputedTiming` struct — `pixel_clock_khz`, `h_total`, `v_total`, `h_front_porch`,
+  `h_sync_width`, `v_front_porch`, `v_sync_width`. Designed to feed
+  `VideoMode::with_detailed_timing` directly. Marked `#[non_exhaustive]`.
+- `CustomColorSpaceEotfCombo` — custom `(color space, EOTF)` pair from DisplayID 2.x block
+  0x26 payload bytes 9+. Fields `color_space: u8` (bits 7:4, values 0–7) and `eotf: u8`
+  (bits 3:0, values 0–10) hold raw nibble-sized indices as defined in the DisplayID 2.x §4.6
+  table. Constructor: `CustomColorSpaceEotfCombo::new(color_space, eotf)`.
+- `DisplayInterfaceFeatures::custom_color_space_eotf_combos: [CustomColorSpaceEotfCombo; 7]`
+  and `custom_color_space_eotf_count: u8` — the custom `(color space, EOTF)` pairs from 0x26
+  payload byte 8 (count, 0–7) and bytes 9+ (one packed byte per pair). Entries beyond the
+  count are uninitialised and must not be read; iterate `0..custom_color_space_eotf_count`.
+- `StereoTimingCodeType` enum — code-space selector for a [`StereoTimingCode`]: `Dmt`
+  (bits 7:6 = `0b00`), `Vic` (`0b01`), `HdmiVic` (`0b10`), `Reserved` (`0b11`).
+- `StereoTimingCode` — one entry from the inline timing-code list in a DisplayID 2.x block
+  0x27. Fields `code_type: StereoTimingCodeType` and `code: u8`. Constructor:
+  `StereoTimingCode::new(code_type, code)`.
+- `DisplayIdStereoInterfaceV2::timing_codes: Vec<StereoTimingCode>` — decoded inline timing
+  codes from block 0x27 when `has_timing_codes()` is `true`. Each record in the payload is a
+  1-byte header (bits 7:6 = type, bits 4:0 = count) followed by that many 1-byte code values.
+  Available in `alloc`/`std` builds only; empty in no_alloc builds.
 - **SLSA Build Level 2 provenance** — release artifacts are attested via
   `actions/attest-build-provenance` and verified with
   `gh attestation verify <file> --repo DracoWhitefire/display-types`.
+
+### Breaking changes
+
+- `DisplayIdStereoInterfaceV2` no longer implements `Copy`. The new
+  `timing_codes: Vec<StereoTimingCode>` field (alloc-gated) is not `Copy`; callers that
+  relied on implicit copy semantics must switch to `.clone()`.
+- `CvtAlgorithm` variants corrected to match the DisplayID 2.x spec (cross-referenced
+  against `edid-decode`). The prior variant set (`CvtRb1` / `CvtRb2` / `CvtRb3` /
+  `ReducedBlankingCvtRb1` / `ReducedBlankingCvtRb2`) was based on a misreading of the
+  spec — bits 2:0 = `0` is standard CVT (no reduced blanking), not CVT-RB v1. The
+  corrected variants are `Cvt` (0), `CvtRb` (1), `CvtR2` (2), `Reserved(u8)` (3–7).
+  `compute_type_ix_timing` dispatch updated accordingly: `Cvt` returns `None` (no
+  evaluator), `CvtRb` → CVT-RB v1 evaluator, `CvtR2` → CVT-RB v2 evaluator.
+- `VideoMode::refresh_rate` changed from `u16` to `Option<RefreshRate>`. `VideoMode::new` now
+  accepts `impl Into<RefreshRate>` for the refresh rate parameter and stores it as `Some(...)`,
+  so integer literals require a `u32` suffix (e.g. `60u32`) or explicit `RefreshRate::integral(60)`.
+  Default-constructed `VideoMode` (and any code reading the field) must handle the `None` case.
+  `pixel_clock_khz` returns `0` when `refresh_rate` is `None` and no DTD pixel clock is set.
+- DMT 0x58 (4096×2160) is now stored as `RefreshRate::fractional(60000, 1001)` (≈ 59.94 Hz)
+  rather than the truncated `60`.
+- `DisplayIdCapabilities` no longer derives `Eq` (only `PartialEq`). The new
+  `display_params_v2: Option<DisplayParamsV2>` field contains `Option<f32>` luminance values,
+  which are `PartialEq` but not `Eq`. Downstream code that required `Eq`
+  (e.g. `HashSet<DisplayIdCapabilities>`, trait bounds) must switch to `PartialEq`.
+
+### Internal
+
+- Fixed coverage ratchet CI: added `LC_NUMERIC=C` to the baseline `printf` to prevent
+  locale-dependent decimal separators from corrupting `.coverage-baseline` on non-C locales.
 
 ## [0.3.1] - 2026-03-28
 

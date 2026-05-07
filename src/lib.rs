@@ -53,8 +53,8 @@ pub use screen::ScreenSize;
 /// Video timing formula types.
 pub mod timing;
 pub use timing::{
-    CvtAspectRatio, CvtAspectRatios, CvtScaling, CvtSupportParams, GtfSecondaryParams,
-    TimingFormula, pixel_clock_khz,
+    ComputedTiming, CvtAspectRatio, CvtAspectRatios, CvtScaling, CvtSupportParams,
+    GtfSecondaryParams, TimingFormula, compute_type_ix_timing, pixel_clock_khz,
 };
 
 /// Panel hardware characteristic types.
@@ -76,12 +76,19 @@ pub mod cea861;
 pub mod displayid;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use displayid::DisplayIdCapabilities;
+pub use displayid::{
+    CustomColorSpaceEotfCombo, DisplayIdStereoInterfaceV2, DisplayInterfaceFeatures,
+    StereoTimingCode, StereoTimingCodeType, StereoTimingScopeV2,
+};
 
 /// Consumer-facing capability types.
 pub mod capabilities;
+pub use capabilities::{
+    CvtAlgorithm, EdidVersion, ModeSource, RefreshRate, StereoMode, SyncDefinition,
+    TypeIxStereoMode, VideoMode,
+};
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use capabilities::{DisplayCapabilities, ExtensionData, ParseWarning};
-pub use capabilities::{EdidVersion, ModeSource, StereoMode, SyncDefinition, VideoMode};
 pub use cea861::HdmiForumFrl;
 pub use transfer::TransferPointEncoding;
 #[cfg(any(feature = "alloc", feature = "std"))]
