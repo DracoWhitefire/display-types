@@ -72,32 +72,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   defaults to empty; `new()` initialises them accordingly.
 - `tag` module: V2 tag constants `V2_PRODUCT_ID` (0x20) through `V2_CONTAINER_ID` (0x29),
   `V2_VENDOR_SPECIFIC` (0x7E), and `V2_CTA_DISPLAYID` (0x81).
-- `CvtAlgorithm` enum — CVT formula selector for DisplayID 2.x Type IX (`0x24`) descriptors:
-  `CvtRb1`, `CvtRb2`, `CvtRb3`, `ReducedBlankingCvtRb1`, `ReducedBlankingCvtRb2`, plus
-  `Reserved(u8)` for spec-reserved encodings (`5`–`7`). Provides `from_bits(b)` decoding the
+- `CvtAlgorithm` enum — CVT formula selector for DisplayID 2.x Type V (`0x11`) and Type IX
+  (`0x24`) descriptors: `Cvt` (encoding `0`, standard CVT, no reduced blanking), `CvtRb`
+  (encoding `1`, CVT-RB v1), `CvtR2` (encoding `2`, CVT-RB v2 / "CVT-R2"), plus
+  `Reserved(u8)` for spec-reserved encodings (`3`–`7`). Provides `from_bits(b)` decoding the
   3-bit field; marked `#[non_exhaustive]`.
-- `VideoMode::cvt_algorithm: Option<CvtAlgorithm>` — populated from Type IX byte 0 bits 2:0;
-  `None` for all other sources. Consumers can derive `pixel_clock_khz` and blanking by
-  applying the named CVT formula (built-in evaluation is a roadmap item).
-- `VideoMode::y420: bool` — populated from Type IX byte 0 bit 4; defaults to `false` for all
-  other sources. Indicates a YCbCr 4:2:0-only mode at the source level (separate from CTA-861
-  Y420 VDB / capability map signalling).
-- `VideoMode::with_cvt_algorithm(alg)` and `VideoMode::with_y420(b)` — builders for the new
-  fields, consistent with `with_pixel_clock` / `with_source` / `with_detailed_timing`.
+- `TypeIxStereoMode` enum — per-mode stereo indicator decoded from Type V and Type IX
+  descriptor byte 0 bits 6:5: `Mono` (`0b00`), `Stereo` (`0b01`),
+  `MonoOrStereoByUser` (`0b10`), `Reserved` (`0b11`). Marked `#[non_exhaustive]`.
+- `VideoMode::cvt_algorithm: Option<CvtAlgorithm>` — populated from Type V/IX byte 0 bits 2:0;
+  `None` for all other sources.
+- `VideoMode::y420: bool` — `true` for YCbCr 4:2:0-only modes. Set by CTA-861 Y420 VDB /
+  capability map signalling and by DisplayID 2.x Type VII (block revision ≥ 2, byte 3 bit 7).
+  Defaults to `false` for all other sources.
+- `VideoMode::ntsc_fractional_refresh: bool` — `true` when NTSC-style fractional refresh
+  (× 1000/1001) is supported alongside this timing. Decoded from Type V and Type IX
+  descriptor byte 0 bit 4. Defaults to `false` for all other sources.
+- `VideoMode::type_ix_stereo: Option<TypeIxStereoMode>` — per-mode stereo indicator from
+  Type V/IX byte 0 bits 6:5. `None` for all other timing sources.
+- `VideoMode::with_cvt_algorithm(alg)`, `VideoMode::with_y420(b)`,
+  `VideoMode::with_ntsc_fractional_refresh(b)`, and `VideoMode::with_type_ix_stereo(s)` —
+  builders for the new fields, consistent with `with_pixel_clock` / `with_source` /
+  `with_detailed_timing`.
 - `compute_type_ix_timing(width, height, refresh_rate, algorithm) -> Option<ComputedTiming>`
   in `display_types::timing` — evaluates the named CVT formula to derive pixel clock and
   blanking parameters from the four-tuple a DisplayID 2.x Type IX descriptor carries.
-  Currently implements **CVT-RB v1** (VESA CVT 1.1 §3.4), **CVT-RB v2** (VESA CVT 1.2
-  §4), and **CVT-RB v3** (VESA CVT 2.0 §4.5). Reference values match the spec: RB v1
-  1920×1080@60 = 138.500 MHz, 2560×1440@60 = 241.500 MHz, 3840×2160@30 = 262.750 MHz;
-  RB v2 1920×1080@60 = 133.320 MHz, 2560×1440@120 = 483.120 MHz, 3840×2160@60 =
-  522.614 MHz. RB v2 differs from v1 in halved H blanking (80 vs 160 px), 1 kHz
-  pixel-clock step (vs 0.25 MHz), wider V_SYNC (8 vs 4 lines), and variable slack
-  lives in V_FPORCH rather than V_BPORCH. RB v3 baseline timing is identical to v2 for
-  fixed-rate Type IX descriptors — the v3 spec additions (VRR vertical blanking
-  scaling, `ADDITIONAL_VBLANK_TIME` margin) apply to dynamic-rate operation and aren't
-  expressible through Type IX. The "reduced blanking with CVT-RB1/RB2" variants return
-  `None` (roadmap items in the piaf repo).
+  Implements **CVT-RB v1** (`CvtRb`, VESA CVT 1.1 §3.4) and **CVT-RB v2 / CVT-R2**
+  (`CvtR2`, VESA CVT 1.2 §4). Reference values: RB v1 1920×1080@60 = 138.500 MHz,
+  2560×1440@60 = 241.500 MHz, 3840×2160@30 = 262.750 MHz; RB v2 1920×1080@60 =
+  133.320 MHz, 2560×1440@120 = 483.120 MHz, 3840×2160@60 = 522.614 MHz. RB v2 differs
+  from v1 in halved H blanking (80 vs 160 px), 1 kHz pixel-clock step (vs 0.25 MHz),
+  wider V_SYNC (8 vs 4 lines), and slack lives in V_FPORCH rather than V_BPORCH.
+  Standard CVT (`Cvt`) and reserved algorithm codes return `None`.
 - `ComputedTiming` struct — `pixel_clock_khz`, `h_total`, `v_total`, `h_front_porch`,
   `h_sync_width`, `v_front_porch`, `v_sync_width`. Designed to feed
   `VideoMode::with_detailed_timing` directly. Marked `#[non_exhaustive]`.
@@ -107,6 +113,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- `CvtAlgorithm` variants corrected to match the DisplayID 2.x spec (cross-referenced
+  against `edid-decode`). The prior variant set (`CvtRb1` / `CvtRb2` / `CvtRb3` /
+  `ReducedBlankingCvtRb1` / `ReducedBlankingCvtRb2`) was based on a misreading of the
+  spec — bits 2:0 = `0` is standard CVT (no reduced blanking), not CVT-RB v1. The
+  corrected variants are `Cvt` (0), `CvtRb` (1), `CvtR2` (2), `Reserved(u8)` (3–7).
+  `compute_type_ix_timing` dispatch updated accordingly: `Cvt` returns `None` (no
+  evaluator), `CvtRb` → CVT-RB v1 evaluator, `CvtR2` → CVT-RB v2 evaluator.
 - `VideoMode::refresh_rate` changed from `u16` to `Option<RefreshRate>`. `VideoMode::new` now
   accepts `impl Into<RefreshRate>` for the refresh rate parameter and stores it as `Some(...)`,
   so integer literals require a `u32` suffix (e.g. `60u32`) or explicit `RefreshRate::integral(60)`.

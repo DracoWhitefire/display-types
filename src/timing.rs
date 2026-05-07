@@ -147,29 +147,19 @@ const RB_V2_V_BPORCH: u16 = 6; // lines, fixed (v1 had a 6-line minimum but vari
 ///
 /// Returns `None` for:
 /// - degenerate input (`width == 0`, `height == 0`, non-positive or non-finite refresh rate)
-/// - algorithms not yet implemented (currently CVT-RB v2/v3 and the "reduced blanking with
-///   CVT-RB1/RB2" encodings; see `doc/roadmap.md` in the piaf repo)
+/// - `CvtAlgorithm::Cvt` (standard CVT, not reduced blanking — no evaluator implemented)
 /// - the `Reserved(_)` algorithm encoding
 ///
 /// The returned [`ComputedTiming`] feeds [`VideoMode::with_detailed_timing`] directly.
 ///
 /// # Algorithm coverage
 ///
-/// | `CvtAlgorithm` variant       | Status |
-/// |------------------------------|--------|
-/// | `CvtRb1`                     | implemented (VESA CVT 1.1 §3.4) |
-/// | `CvtRb2`                     | implemented (VESA CVT 1.2 §4) |
-/// | `CvtRb3`                     | implemented (VESA CVT 2.0 §4.5; baseline identical to v2) |
-/// | `ReducedBlankingCvtRb1`      | not yet — returns `None` |
-/// | `ReducedBlankingCvtRb2`      | not yet — returns `None` |
-/// | `Reserved(_)`                | always `None` |
-///
-/// CVT-RB v3 shares its constants with v2 (`H_BLANK = 80`, `V_SYNC = 8`,
-/// `V_BPORCH = 6`, `MIN_V_BLANK = 460 µs`, 1 kHz pixel-clock step). The v3 spec
-/// additions over v2 — VRR vertical blanking scaling and the
-/// `ADDITIONAL_VBLANK_TIME` margin — apply to dynamic-rate operation and aren't
-/// expressible through a fixed-rate Type IX descriptor, so v3 evaluates to the
-/// same baseline timing as v2.
+/// | `CvtAlgorithm` variant | Status |
+/// |------------------------|--------|
+/// | `Cvt`                  | not implemented (standard CVT, no reduced blanking) — returns `None` |
+/// | `CvtRb`                | implemented (CVT-RB v1, VESA CVT 1.1 §3.4) |
+/// | `CvtR2`                | implemented (CVT-RB v2, VESA CVT 1.2 §4) |
+/// | `Reserved(_)`          | always `None` |
 pub fn compute_type_ix_timing(
     width: u16,
     height: u16,
@@ -177,12 +167,8 @@ pub fn compute_type_ix_timing(
     algorithm: CvtAlgorithm,
 ) -> Option<ComputedTiming> {
     match algorithm {
-        CvtAlgorithm::CvtRb1 => cvt_rb_v1(width, height, refresh_rate),
-        // CVT-RB v3 baseline timing is identical to v2 for static Type IX
-        // descriptors — see the function-level table above for rationale.
-        CvtAlgorithm::CvtRb2 | CvtAlgorithm::CvtRb3 => cvt_rb_v2(width, height, refresh_rate),
-        // The "reduced blanking with CVT-RB1/RB2" variants are not yet implemented.
-        // Reserved(_) values are by definition unevaluable.
+        CvtAlgorithm::CvtRb => cvt_rb_v1(width, height, refresh_rate),
+        CvtAlgorithm::CvtR2 => cvt_rb_v2(width, height, refresh_rate),
         _ => None,
     }
 }
@@ -302,7 +288,7 @@ mod cvt_tests {
     fn cvt_rb_v1_1920x1080_at_60() {
         // Canonical CVT-RB v1 mode. VESA-published value: 138.500 MHz pixel clock,
         // h_total = 2080, v_total = 1111.
-        let t = compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb1)
+        let t = compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb)
             .expect("CVT-RB v1 must produce a timing");
         assert_eq!(t.pixel_clock_khz, 138_500);
         assert_eq!(t.h_total, 2080);
@@ -316,7 +302,7 @@ mod cvt_tests {
     #[test]
     fn cvt_rb_v1_2560x1440_at_60() {
         // CVT-RB v1 reference: 241.500 MHz, h_total = 2720, v_total = 1481.
-        let t = compute_type_ix_timing(2560, 1440, RefreshRate::integral(60), CvtAlgorithm::CvtRb1)
+        let t = compute_type_ix_timing(2560, 1440, RefreshRate::integral(60), CvtAlgorithm::CvtRb)
             .expect("CVT-RB v1 must produce a timing");
         assert_eq!(t.pixel_clock_khz, 241_500);
         assert_eq!(t.h_total, 2720);
@@ -326,7 +312,7 @@ mod cvt_tests {
     #[test]
     fn cvt_rb_v1_3840x2160_at_30() {
         // CVT-RB v1 reference: 262.750 MHz, h_total = 4000, v_total = 2191.
-        let t = compute_type_ix_timing(3840, 2160, RefreshRate::integral(30), CvtAlgorithm::CvtRb1)
+        let t = compute_type_ix_timing(3840, 2160, RefreshRate::integral(30), CvtAlgorithm::CvtRb)
             .expect("CVT-RB v1 must produce a timing");
         assert_eq!(t.pixel_clock_khz, 262_750);
         assert_eq!(t.h_total, 4000);
@@ -336,7 +322,7 @@ mod cvt_tests {
     #[test]
     fn cvt_rb_v1_zero_width_returns_none() {
         assert!(
-            compute_type_ix_timing(0, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb1)
+            compute_type_ix_timing(0, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb)
                 .is_none()
         );
     }
@@ -344,7 +330,7 @@ mod cvt_tests {
     #[test]
     fn cvt_rb_v1_zero_height_returns_none() {
         assert!(
-            compute_type_ix_timing(1920, 0, RefreshRate::integral(60), CvtAlgorithm::CvtRb1)
+            compute_type_ix_timing(1920, 0, RefreshRate::integral(60), CvtAlgorithm::CvtRb)
                 .is_none()
         );
     }
@@ -354,13 +340,8 @@ mod cvt_tests {
         // Refresh so high that frame period is below the 460 µs RB minimum.
         // 1/3000 s = 333 µs < 460 µs → no time for active video.
         assert!(
-            compute_type_ix_timing(
-                1920,
-                1080,
-                RefreshRate::integral(3000),
-                CvtAlgorithm::CvtRb1
-            )
-            .is_none()
+            compute_type_ix_timing(1920, 1080, RefreshRate::integral(3000), CvtAlgorithm::CvtRb)
+                .is_none()
         );
     }
 
@@ -368,7 +349,7 @@ mod cvt_tests {
     fn cvt_rb_v2_1920x1080_at_60() {
         // CVT-RB v2 1920×1080@60: half the H blanking of v1, slack in V_FPORCH.
         // h_total = 2000, v_total = 1111 → 60 × 2000 × 1111 = 133_320_000 Hz → 133_320 kHz.
-        let t = compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb2)
+        let t = compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtR2)
             .expect("CVT-RB v2 must produce a timing");
         assert_eq!(t.pixel_clock_khz, 133_320);
         assert_eq!(t.h_total, 2000);
@@ -384,9 +365,8 @@ mod cvt_tests {
     fn cvt_rb_v2_2560x1440_at_120() {
         // 144/240 Hz panels typically use RB v2. h_total = 2640, v_total = 1525.
         // 120 × 2640 × 1525 = 483_120_000 Hz → 483_120 kHz.
-        let t =
-            compute_type_ix_timing(2560, 1440, RefreshRate::integral(120), CvtAlgorithm::CvtRb2)
-                .expect("CVT-RB v2 must produce a timing");
+        let t = compute_type_ix_timing(2560, 1440, RefreshRate::integral(120), CvtAlgorithm::CvtR2)
+            .expect("CVT-RB v2 must produce a timing");
         assert_eq!(t.pixel_clock_khz, 483_120);
         assert_eq!(t.h_total, 2640);
         assert_eq!(t.v_total, 1525);
@@ -396,7 +376,7 @@ mod cvt_tests {
     fn cvt_rb_v2_3840x2160_at_60() {
         // 4K@60 RB v2: h_total = 3920, v_total = 2222.
         // 60 × 3920 × 2222 = 522_614_400 Hz → 522_614 kHz (floor of 522614.4).
-        let t = compute_type_ix_timing(3840, 2160, RefreshRate::integral(60), CvtAlgorithm::CvtRb2)
+        let t = compute_type_ix_timing(3840, 2160, RefreshRate::integral(60), CvtAlgorithm::CvtR2)
             .expect("CVT-RB v2 must produce a timing");
         assert_eq!(t.pixel_clock_khz, 522_614);
         assert_eq!(t.h_total, 3920);
@@ -406,7 +386,7 @@ mod cvt_tests {
     #[test]
     fn cvt_rb_v2_zero_width_returns_none() {
         assert!(
-            compute_type_ix_timing(0, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb2)
+            compute_type_ix_timing(0, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtR2)
                 .is_none()
         );
     }
@@ -415,42 +395,18 @@ mod cvt_tests {
     fn cvt_rb_v2_unreachable_refresh_returns_none() {
         // Frame period below the 460 µs RB v2 minimum.
         assert!(
-            compute_type_ix_timing(
-                1920,
-                1080,
-                RefreshRate::integral(3000),
-                CvtAlgorithm::CvtRb2
-            )
-            .is_none()
+            compute_type_ix_timing(1920, 1080, RefreshRate::integral(3000), CvtAlgorithm::CvtR2)
+                .is_none()
         );
     }
 
     #[test]
-    fn cvt_rb_v3_matches_v2_baseline() {
-        // CVT-RB v3 baseline = RB v2 (the v3 spec additions are VRR-only and don't
-        // apply to a static Type IX descriptor). Pin both 1080p60 and 4K60.
-        for (w, h, hz) in [(1920u16, 1080u16, 60u32), (3840, 2160, 60)] {
-            let v2 = compute_type_ix_timing(w, h, RefreshRate::integral(hz), CvtAlgorithm::CvtRb2)
-                .expect("RB v2 must produce a timing");
-            let v3 = compute_type_ix_timing(w, h, RefreshRate::integral(hz), CvtAlgorithm::CvtRb3)
-                .expect("RB v3 must produce a timing");
-            assert_eq!(v2, v3, "RB v3 baseline must equal RB v2 for {w}×{h}@{hz}");
-        }
-    }
-
-    #[test]
-    fn cvt_rb_v3_1920x1080_at_60_pinned_values() {
-        // Independent regression guard: pin the v3 result directly so a future
-        // divergence from v2 (e.g. when VRR support lands) is caught here.
-        let t = compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::CvtRb3)
-            .expect("RB v3 must produce a timing");
-        assert_eq!(t.pixel_clock_khz, 133_320);
-        assert_eq!(t.h_total, 2000);
-        assert_eq!(t.v_total, 1111);
-        assert_eq!(t.h_front_porch, 8);
-        assert_eq!(t.h_sync_width, 32);
-        assert_eq!(t.v_front_porch, 17);
-        assert_eq!(t.v_sync_width, 8);
+    fn cvt_standard_returns_none() {
+        // Standard CVT (no reduced blanking) has no evaluator implemented.
+        assert!(
+            compute_type_ix_timing(1920, 1080, RefreshRate::integral(60), CvtAlgorithm::Cvt)
+                .is_none()
+        );
     }
 
     #[test]

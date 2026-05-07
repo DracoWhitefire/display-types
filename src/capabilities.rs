@@ -41,45 +41,60 @@ pub enum StereoMode {
     SideBySideInterleaved,
 }
 
-/// CVT formula selector for DisplayID 2.x Type IX (`0x24`) Formula-Based Timings.
+/// CVT formula selector for DisplayID 2.x Type IX (`0x24`) and Type V (`0x11`)
+/// Formula-Based Timings.
 ///
-/// Decoded from byte 0 bits 2:0 of the 6-byte Type IX descriptor. Identifies which CVT
-/// variant the consumer should use to derive blanking parameters and pixel clock from the
-/// `(width, height, refresh_rate)` triple stored on [`VideoMode`]. Codes `5`–`7` are
-/// reserved by the DisplayID 2.x spec; unknown encodings are surfaced as
-/// [`CvtAlgorithm::Reserved`] so a future spec value does not break decoding.
+/// Decoded from byte 0 bits 2:0. Identifies which CVT variant the consumer should use
+/// to derive blanking parameters and pixel clock from the `(width, height, refresh_rate)`
+/// triple stored on [`VideoMode`]. Codes `3`–`7` are reserved by the DisplayID 2.x spec;
+/// unknown encodings are surfaced as [`CvtAlgorithm::Reserved`] so a future spec value
+/// does not block decoding of the rest of the descriptor.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CvtAlgorithm {
-    /// CVT-RB1 (encoding `0`).
-    CvtRb1,
-    /// CVT-RB2 (encoding `1`).
-    CvtRb2,
-    /// CVT-RB3 (encoding `2`).
-    CvtRb3,
-    /// Reduced blanking with CVT-RB1 (encoding `3`).
-    ReducedBlankingCvtRb1,
-    /// Reduced blanking with CVT-RB2 (encoding `4`).
-    ReducedBlankingCvtRb2,
-    /// Spec-reserved encoding (`5`–`7`) preserved verbatim so unknown values do not block
+    /// Standard CVT (no reduced blanking) (encoding `0`).
+    Cvt,
+    /// CVT-RB v1 (encoding `1`).
+    CvtRb,
+    /// CVT-R2 / CVT-RB v2 (encoding `2`).
+    CvtR2,
+    /// Spec-reserved encoding (`3`–`7`) preserved verbatim so unknown values do not block
     /// decoding of the rest of the descriptor.
     Reserved(u8),
 }
 
 impl CvtAlgorithm {
-    /// Decodes the 3-bit CVT algorithm field (Type IX descriptor byte 0 bits 2:0).
+    /// Decodes the 3-bit CVT algorithm field (Type V/IX descriptor byte 0 bits 2:0).
     /// Upper bits of the input are ignored.
     pub const fn from_bits(b: u8) -> Self {
         match b & 0x07 {
-            0 => Self::CvtRb1,
-            1 => Self::CvtRb2,
-            2 => Self::CvtRb3,
-            3 => Self::ReducedBlankingCvtRb1,
-            4 => Self::ReducedBlankingCvtRb2,
+            0 => Self::Cvt,
+            1 => Self::CvtRb,
+            2 => Self::CvtR2,
             other => Self::Reserved(other),
         }
     }
+}
+
+/// Stereo timing mode decoded from Type V (`0x11`) and Type IX (`0x24`) descriptor byte 0
+/// bits 6:5. Indicates whether the timing is for a mono display, stereo-only, or
+/// user-selectable.
+///
+/// This is distinct from [`StereoMode`], which describes the specific stereo viewing method
+/// decoded from a Detailed Timing Descriptor.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypeIxStereoMode {
+    /// Mono timing (bits 6:5 = `0b00`).
+    Mono,
+    /// 3D stereo timing (bits 6:5 = `0b01`).
+    Stereo,
+    /// Mono or 3D stereo depending on user action (bits 6:5 = `0b10`).
+    MonoOrStereoByUser,
+    /// Reserved (bits 6:5 = `0b11`).
+    Reserved,
 }
 
 /// Sync signal definition decoded from DTD byte 17 bits 4–1.
@@ -345,13 +360,21 @@ pub struct VideoMode {
     ///
     /// `None` for modes constructed directly via [`VideoMode::new`] without a table lookup.
     pub source: Option<ModeSource>,
-    /// CVT formula selector for DisplayID 2.x Type IX timings (`None` for all other sources).
+    /// CVT formula selector for DisplayID 2.x Type V/IX timings (`None` for all other sources).
     /// Consumers can use this to derive blanking and pixel clock from `(width, height,
     /// refresh_rate)` via the named CVT variant.
     pub cvt_algorithm: Option<CvtAlgorithm>,
-    /// `true` when the timing is YCbCr 4:2:0 only (DisplayID 2.x Type IX byte 0 bit 4).
-    /// Defaults to `false` for all non-Type-IX sources.
+    /// `true` when the timing is YCbCr 4:2:0 only. Set from CTA-861 Y420 capability data
+    /// and from DisplayID 2.x Type VII byte 3 bit 7 (block revision ≥ 2).
+    /// Defaults to `false` for all other sources.
     pub y420: bool,
+    /// `true` when NTSC-style fractional refresh rate (× 1000/1001) is supported alongside
+    /// this timing. Decoded from Type V and Type IX descriptor byte 0 bit 4.
+    /// Defaults to `false` for all other sources.
+    pub ntsc_fractional_refresh: bool,
+    /// Per-mode stereo indicator from Type V (`0x11`) and Type IX (`0x24`) descriptor byte 0
+    /// bits 6:5. `None` for all other timing sources.
+    pub type_ix_stereo: Option<TypeIxStereoMode>,
 }
 
 impl VideoMode {
@@ -407,10 +430,24 @@ impl VideoMode {
     }
 
     /// Sets the YCbCr 4:2:0 flag, returning the updated mode. Used by DisplayID 2.x
-    /// Type IX (`0x24`) descriptors and by callers that derive Y420-only modes from
-    /// CTA-861 Y420 capability data.
+    /// Type VII decoders (block revision ≥ 2) and by callers that derive Y420-only modes
+    /// from CTA-861 Y420 capability data.
     pub fn with_y420(mut self, y420: bool) -> Self {
         self.y420 = y420;
+        self
+    }
+
+    /// Sets the NTSC fractional refresh flag, returning the updated mode. Used by
+    /// Type V and Type IX decoders when byte 0 bit 4 is set.
+    pub fn with_ntsc_fractional_refresh(mut self, supported: bool) -> Self {
+        self.ntsc_fractional_refresh = supported;
+        self
+    }
+
+    /// Sets the per-mode stereo indicator from Type V/IX byte 0 bits 6:5, returning the
+    /// updated mode.
+    pub fn with_type_ix_stereo(mut self, stereo: TypeIxStereoMode) -> Self {
+        self.type_ix_stereo = Some(stereo);
         self
     }
 
