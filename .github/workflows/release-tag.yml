@@ -13,7 +13,6 @@ jobs:
     permissions:
       contents: write
       actions: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,20 +65,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Open and merge develop → main PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge develop → main
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          PR_URL=$(gh pr create \
-            --base main \
-            --head develop \
-            --title "Release v${VERSION}" \
-            --body "Promote release v${VERSION} from develop to main.")
-          for attempt in 1 2 3; do
-            gh pr merge "$PR_URL" --merge && break
-            [ $attempt -lt 3 ] && sleep 10
-          done
+          git fetch origin main
+          git checkout main
+          git merge origin/develop --allow-unrelated-histories -m "Release v${VERSION}: promote develop to main"
+          git push origin main
 
       - name: Create and push tag
         run: |
