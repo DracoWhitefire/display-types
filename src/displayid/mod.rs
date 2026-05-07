@@ -270,6 +270,71 @@ bitflags::bitflags! {
     }
 }
 
+/// A custom `(color space, EOTF)` pairing from DisplayID 2.x block 0x26 payload bytes 9+.
+///
+/// Constructed via [`CustomColorSpaceEotfCombo::new`].
+///
+/// Each byte encodes one pair: bits 7:4 = color space index, bits 3:0 = EOTF index.
+/// Index values are defined by the DisplayID 2.x spec §4.6:
+///
+/// Color space: 0 = follow interface, 1 = sRGB, 2 = BT.601, 3 = BT.709,
+/// 4 = Adobe RGB, 5 = DCI-P3, 6 = BT.2020, 7 = custom.
+///
+/// EOTF: 0 = follow interface, 1 = sRGB, 2 = BT.601, 3 = BT.1886,
+/// 4 = Adobe RGB, 5 = DCI-P3, 6 = BT.2020, 7 = gamma (from display params),
+/// 8 = SMPTE ST 2084, 9 = hybrid log-gamma, 10 = custom.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CustomColorSpaceEotfCombo {
+    /// Color space index (bits 7:4 of the wire byte), values 0–7.
+    pub color_space: u8,
+    /// EOTF index (bits 3:0 of the wire byte), values 0–10.
+    pub eotf: u8,
+}
+
+impl CustomColorSpaceEotfCombo {
+    /// Constructs a custom combo from raw nibble values.
+    pub fn new(color_space: u8, eotf: u8) -> Self {
+        Self { color_space, eotf }
+    }
+}
+
+/// Code-space selector for a [`StereoTimingCode`] in a DisplayID 2.x block 0x27.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StereoTimingCodeType {
+    /// VESA Display Monitor Timings identifier (bits 7:6 = `0b00`).
+    Dmt,
+    /// CTA-861 Video Identification Code (bits 7:6 = `0b01`).
+    Vic,
+    /// HDMI Forum VIC (bits 7:6 = `0b10`).
+    HdmiVic,
+    /// Reserved code type (bits 7:6 = `0b11`).
+    Reserved,
+}
+
+/// One timing code entry from the inline list in a DisplayID 2.x block 0x27.
+///
+/// Constructed via [`StereoTimingCode::new`].
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StereoTimingCode {
+    /// Table to look up `code` in.
+    pub code_type: StereoTimingCodeType,
+    /// 1-byte timing code (DMT ID, CTA VIC, or HDMI VIC).
+    pub code: u8,
+}
+
+impl StereoTimingCode {
+    /// Constructs a timing code entry.
+    pub fn new(code_type: StereoTimingCodeType, code: u8) -> Self {
+        Self { code_type, code }
+    }
+}
+
 /// Display interface features decoded from DisplayID 2.x block 0x26.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -287,15 +352,19 @@ pub struct DisplayInterfaceFeatures {
     pub min_ycbcr420_pixel_rate: u8,
     /// Audio capability flags (payload byte 5). Stored as a raw byte: bits 5–7 advertise
     /// 32/44.1/48 kHz sample-rate support, lower bits carry audio override and additional
-    /// flags whose semantics this crate does not yet typify. Treat as opaque until a
-    /// dedicated bitflags type lands.
+    /// flags whose semantics this crate does not yet typify.
     pub audio_flags: u8,
     /// Color space and EOTF defined-combinations bitmask (payload byte 6). Each set bit
     /// indicates support for one of the spec's pre-defined `(color space, EOTF)` pairs.
-    /// Stored as a raw byte until a typed bitflags wrapper for the defined combinations
-    /// lands. Custom combinations (payload bytes 7–8) are a separate concept and are not
-    /// represented here.
+    /// Stored as a raw byte; bit positions match the spec §4.6 table (bit 0 = sRGB, etc.).
     pub color_space_eotf_combos: u8,
+    /// Custom color space and EOTF combinations (payload bytes 9+, up to 7 entries).
+    /// The count of valid entries is in [`DisplayInterfaceFeatures::custom_color_space_eotf_count`].
+    /// Payload byte 8 is the count; each subsequent byte encodes one combo (bits 7:4 =
+    /// color space index, bits 3:0 = EOTF index). See [`CustomColorSpaceEotfCombo`].
+    pub custom_color_space_eotf_combos: [CustomColorSpaceEotfCombo; 7],
+    /// Number of valid entries in [`DisplayInterfaceFeatures::custom_color_space_eotf_combos`] (0–7).
+    pub custom_color_space_eotf_count: u8,
 }
 
 /// Identifies the eye targeted by a stereo viewing-method parameter.
@@ -331,8 +400,8 @@ pub enum DualInterfaceMirroring {
 ///
 /// Encoded in bits 7:6 of the block's revision/flags byte. Variants `ExplicitAndListedTimings`
 /// and `ListedTimingCodesOnly` indicate that the block carries an inline list of timing codes
-/// (DMT/VIC/HDMI VIC) which is not parsed by this crate; consumers can still detect its presence
-/// via [`DisplayIdStereoInterfaceV2::has_timing_codes`].
+/// (DMT/VIC/HDMI VIC); those codes are decoded into
+/// [`DisplayIdStereoInterfaceV2::timing_codes`].
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -428,16 +497,24 @@ pub enum StereoViewingMethodV2 {
 
 /// Stereo display interface decoded from a DisplayID 2.x block 0x27.
 ///
-/// The block also carries an optional inline list of timing codes (DMT/VIC/HDMI VIC) when
-/// [`Self::has_timing_codes`] returns `true`; that list is not parsed by this crate.
+/// When [`Self::has_timing_codes`] returns `true`, the block carries an inline list of
+/// timing codes (DMT/VIC/HDMI VIC) scoping the stereo configuration; those codes are
+/// decoded into [`timing_codes`][Self::timing_codes] (alloc/std builds only).
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DisplayIdStereoInterfaceV2 {
     /// Scope of timings to which this stereo configuration applies.
     pub timing_scope: StereoTimingScopeV2,
     /// Stereo viewing method and method-specific parameters.
     pub method: StereoViewingMethodV2,
+    /// Inline timing codes scoping this stereo configuration (alloc/std builds only).
+    ///
+    /// Non-empty only when [`has_timing_codes`][Self::has_timing_codes] returns `true`.
+    /// Each entry names one timing (by DMT ID, CTA VIC, or HDMI VIC) to which this
+    /// stereo interface block applies.
+    #[cfg(any(feature = "alloc", feature = "std"))]
+    pub timing_codes: crate::prelude::Vec<StereoTimingCode>,
 }
 
 impl Default for DisplayIdStereoInterfaceV2 {
@@ -445,6 +522,8 @@ impl Default for DisplayIdStereoInterfaceV2 {
         Self {
             timing_scope: StereoTimingScopeV2::ExplicitTimingsOnly,
             method: StereoViewingMethodV2::Proprietary,
+            #[cfg(any(feature = "alloc", feature = "std"))]
+            timing_codes: crate::prelude::Vec::new(),
         }
     }
 }

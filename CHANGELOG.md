@@ -107,12 +107,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ComputedTiming` struct — `pixel_clock_khz`, `h_total`, `v_total`, `h_front_porch`,
   `h_sync_width`, `v_front_porch`, `v_sync_width`. Designed to feed
   `VideoMode::with_detailed_timing` directly. Marked `#[non_exhaustive]`.
+- `CustomColorSpaceEotfCombo` — custom `(color space, EOTF)` pair from DisplayID 2.x block
+  0x26 payload bytes 9+. Fields `color_space: u8` (bits 7:4, values 0–7) and `eotf: u8`
+  (bits 3:0, values 0–10) hold raw nibble-sized indices as defined in the DisplayID 2.x §4.6
+  table. Constructor: `CustomColorSpaceEotfCombo::new(color_space, eotf)`.
+- `DisplayInterfaceFeatures::custom_color_space_eotf_combos: [CustomColorSpaceEotfCombo; 7]`
+  and `custom_color_space_eotf_count: u8` — the custom `(color space, EOTF)` pairs from 0x26
+  payload byte 8 (count, 0–7) and bytes 9+ (one packed byte per pair). Entries beyond the
+  count are uninitialised and must not be read; iterate `0..custom_color_space_eotf_count`.
+- `StereoTimingCodeType` enum — code-space selector for a [`StereoTimingCode`]: `Dmt`
+  (bits 7:6 = `0b00`), `Vic` (`0b01`), `HdmiVic` (`0b10`), `Reserved` (`0b11`).
+- `StereoTimingCode` — one entry from the inline timing-code list in a DisplayID 2.x block
+  0x27. Fields `code_type: StereoTimingCodeType` and `code: u8`. Constructor:
+  `StereoTimingCode::new(code_type, code)`.
+- `DisplayIdStereoInterfaceV2::timing_codes: Vec<StereoTimingCode>` — decoded inline timing
+  codes from block 0x27 when `has_timing_codes()` is `true`. Each record in the payload is a
+  1-byte header (bits 7:6 = type, bits 4:0 = count) followed by that many 1-byte code values.
+  Available in `alloc`/`std` builds only; empty in no_alloc builds.
 - **SLSA Build Level 2 provenance** — release artifacts are attested via
   `actions/attest-build-provenance` and verified with
   `gh attestation verify <file> --repo DracoWhitefire/display-types`.
 
 ### Breaking changes
 
+- `DisplayIdStereoInterfaceV2` no longer implements `Copy`. The new
+  `timing_codes: Vec<StereoTimingCode>` field (alloc-gated) is not `Copy`; callers that
+  relied on implicit copy semantics must switch to `.clone()`.
 - `CvtAlgorithm` variants corrected to match the DisplayID 2.x spec (cross-referenced
   against `edid-decode`). The prior variant set (`CvtRb1` / `CvtRb2` / `CvtRb3` /
   `ReducedBlankingCvtRb1` / `ReducedBlankingCvtRb2`) was based on a misreading of the

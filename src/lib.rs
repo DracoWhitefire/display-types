@@ -76,6 +76,10 @@ pub mod cea861;
 pub mod displayid;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use displayid::DisplayIdCapabilities;
+pub use displayid::{
+    CustomColorSpaceEotfCombo, DisplayIdStereoInterfaceV2, DisplayInterfaceFeatures,
+    StereoTimingCode, StereoTimingCodeType, StereoTimingScopeV2,
+};
 
 /// Consumer-facing capability types.
 pub mod capabilities;
