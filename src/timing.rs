@@ -173,6 +173,26 @@ pub fn compute_type_ix_timing(
     }
 }
 
+// f64::floor() and f64::ceil() are not available in no_std (they require libm).
+// These helpers use integer truncation, which is correct for all finite positive
+// inputs — the only values the CVT evaluators ever produce.
+fn floor_f64(x: f64) -> f64 {
+    let n = x as i64;
+    if (n as f64) > x {
+        (n - 1) as f64
+    } else {
+        n as f64
+    }
+}
+fn ceil_f64(x: f64) -> f64 {
+    let n = x as i64;
+    if (n as f64) < x {
+        (n + 1) as f64
+    } else {
+        n as f64
+    }
+}
+
 /// CVT-RB v1 evaluator. See [`compute_type_ix_timing`] for the public entry point.
 fn cvt_rb_v1(width: u16, height: u16, refresh_rate: RefreshRate) -> Option<ComputedTiming> {
     if width == 0 || height == 0 {
@@ -194,7 +214,7 @@ fn cvt_rb_v1(width: u16, height: u16, refresh_rate: RefreshRate) -> Option<Compu
         return None; // refresh too high to fit RB1's minimum blanking budget
     }
 
-    let vbi_lines = (f64::from(RB_V1_MIN_V_BLANK_US) / h_period_est_us).ceil() as u32;
+    let vbi_lines = ceil_f64(f64::from(RB_V1_MIN_V_BLANK_US) / h_period_est_us) as u32;
     let rb_min_vbi =
         u32::from(RB_V1_V_FPORCH) + u32::from(RB_V1_V_SYNC) + u32::from(RB_V1_MIN_V_BPORCH);
     let actual_vbi_lines = vbi_lines.max(rb_min_vbi);
@@ -205,7 +225,7 @@ fn cvt_rb_v1(width: u16, height: u16, refresh_rate: RefreshRate) -> Option<Compu
     // Pixel clock: V_FIELD_RATE × V_TOTAL × H_TOTAL, floored to the 250 kHz step.
     let pixel_clock_hz = v_field_rate_hz * f64::from(v_total) * f64::from(h_total);
     let pixel_clock_khz_steps =
-        (pixel_clock_hz / 1000.0 / f64::from(RB_V1_CLOCK_STEP_KHZ)).floor() as u32;
+        floor_f64(pixel_clock_hz / 1000.0 / f64::from(RB_V1_CLOCK_STEP_KHZ)) as u32;
     let pixel_clock_khz = pixel_clock_khz_steps * RB_V1_CLOCK_STEP_KHZ;
 
     // Sanity: H_TOTAL and V_TOTAL must fit in u16 for VideoMode.
@@ -247,7 +267,7 @@ fn cvt_rb_v2(width: u16, height: u16, refresh_rate: RefreshRate) -> Option<Compu
         return None; // refresh too high to fit RB v2's minimum blanking budget
     }
 
-    let vbi_lines = (f64::from(RB_V2_MIN_V_BLANK_US) / h_period_est_us).ceil() as u32;
+    let vbi_lines = ceil_f64(f64::from(RB_V2_MIN_V_BLANK_US) / h_period_est_us) as u32;
     let rb_min_vbi =
         u32::from(RB_V2_MIN_V_FPORCH) + u32::from(RB_V2_V_SYNC) + u32::from(RB_V2_V_BPORCH);
     let actual_vbi_lines = vbi_lines.max(rb_min_vbi);
@@ -258,7 +278,7 @@ fn cvt_rb_v2(width: u16, height: u16, refresh_rate: RefreshRate) -> Option<Compu
     // Pixel clock: V_FIELD_RATE × V_TOTAL × H_TOTAL, floored to the 1 kHz step.
     let pixel_clock_hz = v_field_rate_hz * f64::from(v_total) * f64::from(h_total);
     let pixel_clock_khz_steps =
-        (pixel_clock_hz / 1000.0 / f64::from(RB_V2_CLOCK_STEP_KHZ)).floor() as u32;
+        floor_f64(pixel_clock_hz / 1000.0 / f64::from(RB_V2_CLOCK_STEP_KHZ)) as u32;
     let pixel_clock_khz = pixel_clock_khz_steps * RB_V2_CLOCK_STEP_KHZ;
 
     // V_FPORCH carries the slack in v2: VBI = V_FPORCH + V_SYNC + V_BPORCH.
