@@ -369,7 +369,7 @@ pub struct VideoMode {
     /// Defaults to `false` for all other sources.
     pub y420: bool,
     /// `true` when NTSC-style fractional refresh rate (× 1000/1001) is supported alongside
-    /// this timing. Decoded from Type V and Type IX descriptor byte 0 bit 4.
+    /// this timing. Decoded from Type V and Type IX descriptor byte 0 bit 3.
     /// Defaults to `false` for all other sources.
     pub ntsc_fractional_refresh: bool,
     /// Per-mode stereo indicator from Type V (`0x11`) and Type IX (`0x24`) descriptor byte 0
@@ -438,7 +438,7 @@ impl VideoMode {
     }
 
     /// Sets the NTSC fractional refresh flag, returning the updated mode. Used by
-    /// Type V and Type IX decoders when byte 0 bit 4 is set.
+    /// Type V and Type IX decoders when byte 0 bit 3 is set.
     pub fn with_ntsc_fractional_refresh(mut self, supported: bool) -> Self {
         self.ntsc_fractional_refresh = supported;
         self

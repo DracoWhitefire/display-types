@@ -87,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Defaults to `false` for all other sources.
 - `VideoMode::ntsc_fractional_refresh: bool` — `true` when NTSC-style fractional refresh
   (× 1000/1001) is supported alongside this timing. Decoded from Type V and Type IX
-  descriptor byte 0 bit 4. Defaults to `false` for all other sources.
+  descriptor byte 0 bit 3. Defaults to `false` for all other sources.
 - `VideoMode::type_ix_stereo: Option<TypeIxStereoMode>` — per-mode stereo indicator from
   Type V/IX byte 0 bits 6:5. `None` for all other timing sources.
 - `VideoMode::with_cvt_algorithm(alg)`, `VideoMode::with_y420(b)`,
