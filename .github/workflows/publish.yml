@@ -43,6 +43,14 @@ jobs:
             echo "Tag is not on main — skipping publish."
             echo "on_main=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Check tag matches the crate version
+        run: |
+          CRATE_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$CRATE_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${CRATE_VERSION}."
+            exit 1
+          fi
 
   # Quality gates. This job compiles the crate and its dependencies (running their
   # build scripts), so it holds no publishing credentials and may use the cache.
