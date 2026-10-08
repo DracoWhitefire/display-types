@@ -16,6 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `u64` for very large refresh-rate numerators. The estimate is now computed in `u128`
   and saturates at `u32::MAX`.
 
+### Internal
+
+- **Release promotion goes through a pull request** — `release-tag` now promotes `develop`
+  to `main` via a `release-promote/v*` branch and PR instead of pushing to `main` directly,
+  which branch protection rejects. Matches the workflow used by the other stack crates.
+- **Automated publish can be triggered by `release-tag`** — `publish.yml` gains a
+  `workflow_dispatch` trigger. Tags pushed with `GITHUB_TOKEN` do not start push-triggered
+  workflows, so `release-tag`'s "Trigger publish workflow" step
+  (`gh workflow run publish.yml`) could not start a publish run. Dispatches against a
+  non-tag ref (e.g. `main`) are skipped, so they cannot publish or create a release.
+
 ## [0.4.0] - 2026-05-07
 
 ### Added
