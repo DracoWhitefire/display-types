@@ -6,6 +6,7 @@
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 [![Rust 1.85+](https://img.shields.io/badge/rustc-1.85+-orange.svg)](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0.html)
 [![SLSA Level 2](https://slsa.dev/images/gh-badge-level2.svg)](https://slsa.dev)
+[![trusted publishing](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcrates.io%2Fapi%2Fv1%2Fcrates%2Fdisplay-types&query=%24.crate.trustpub_only&label=trusted%20publishing)](#verifying-releases)
 
 Shared display capability types for display connection negotiation.
 
@@ -53,8 +54,8 @@ for build and test instructions.
 
 ## Verifying releases
 
-Each release is built on GitHub Actions and attested with
-[SLSA Build Level 2](https://slsa.dev) provenance. To verify a release
+Releases are built on GitHub Actions and attested with
+[SLSA Build Level 2](https://slsa.dev) provenance (from 0.4.0). To verify a release
 `.crate` against its signed provenance, install the
 [GitHub CLI](https://cli.github.com/) and run:
 
@@ -64,6 +65,20 @@ gh attestation verify display-types-X.Y.Z.crate --repo DracoWhitefire/display-ty
 
 The attested `.crate` is attached to each
 [GitHub release](https://github.com/DracoWhitefire/display-types/releases).
+
+From 0.4.1, releases are uploaded only through crates.io
+[trusted publishing](https://rust-lang.github.io/rfcs/3691-trusted-publishing-cratesio.html): the publish
+workflow obtains a short-lived token via OpenID Connect, and crates.io rejects
+uploads made with an API token for this crate (the badge above reflects that
+setting). Each version's publishing details, including the workflow run and
+commit, are available from the crates.io API:
+
+```sh
+curl -A "your-tool (contact)" https://crates.io/api/v1/crates/display-types/X.Y.Z
+# see .version.trustpub_data
+```
+
+Versions up to 0.3.1 were published manually and carry no provenance.
 
 ## License
 
