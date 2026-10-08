@@ -4,6 +4,16 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+  # Dispatched by release-tag.yml: tags pushed with GITHUB_TOKEN do not trigger
+  # push workflows. Only tag refs proceed; see the check-branch guard below.
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,13 +22,16 @@ env:
 jobs:
   check-branch:
     name: Check tag is on main
+    # A dispatch against a branch (e.g. main) must not publish or create a release.
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
     outputs:
       on_main: ${{ steps.check.outputs.on_main }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Check tag is on main
         id: check
@@ -30,26 +43,35 @@ jobs:
             echo "Tag is not on main — skipping publish."
             echo "on_main=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Check tag matches the crate version
+        run: |
+          CRATE_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$CRATE_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${CRATE_VERSION}."
+            exit 1
+          fi
 
-  publish:
-    name: Publish to crates.io
+  # Quality gates. This job compiles the crate and its dependencies (running their
+  # build scripts), so it holds no publishing credentials and may use the cache.
+  verify:
+    name: Verify
     needs: check-branch
     if: needs.check-branch.outputs.on_main == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write      # OIDC token for SLSA provenance signing
-      attestations: write  # write signed provenance to GitHub's attestation store
-      contents: write      # create GitHub release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       - name: Cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry
@@ -79,32 +101,100 @@ jobs:
       - name: Build (no_std)
         run: cargo build --locked --no-default-features
 
-      # Materialise the .crate package before signing; cargo publish would
-      # do this internally, but we need the file path for the attestation.
+  # Packaging, attestation and upload. Runs in the `release` environment (deployable
+  # only from v* tags), which crates.io trusted publishing is bound to. Nothing is
+  # compiled here and no cache is restored, so no third-party build code runs while
+  # the OIDC / crates.io token is available.
+  publish:
+    name: Publish to crates.io
+    needs: [check-branch, verify]
+    if: needs.check-branch.outputs.on_main == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    env:
+      # crates.io's data access policy requires an identifying User-Agent and
+      # answers curl's default one with 403.
+      CRATES_IO_UA: ${{ github.repository }} publish workflow (https://github.com/${{ github.repository }})
+    permissions:
+      id-token: write      # OIDC: SLSA provenance signing and crates.io trusted publishing
+      attestations: write  # write signed provenance to GitHub's attestation store
+      contents: write      # create GitHub release
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
+
+      # Materialise the .crate package before signing. --no-verify skips the
+      # verification build (already done by the verify job), so no dependency
+      # build scripts run in this job. `cargo publish` re-packages into
+      # target/package/, so the attested file is kept as a separate copy outside
+      # the package root; that copy is what gets attested, compared against
+      # crates.io, and attached to the GitHub release.
       - name: Package crate
-        run: cargo package
+        run: |
+          cargo package --locked --no-verify
+          mkdir -p "$RUNNER_TEMP/dist"
+          cp target/package/*.crate "$RUNNER_TEMP/dist/"
 
       # Sign the .crate with SLSA Build Level 2 provenance.  The attestation
       # is stored in GitHub's attestation API and is verifiable offline with:
       #   gh attestation verify <file> --repo ${{ github.repository }}
       - name: Attest crate provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
-          subject-path: target/package/*.crate
+          subject-path: ${{ runner.temp }}/dist/*.crate
 
-      - name: Publish to crates.io
+      - name: Check whether this version is already on crates.io
+        id: existing
         run: |
           NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
           VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          STATUS=$(curl -sS -A "$CRATES_IO_UA" -o /dev/null -w "%{http_code}" \
             "https://crates.io/api/v1/crates/$NAME/$VERSION")
-          if [ "$STATUS" = "200" ]; then
-            echo "$NAME $VERSION is already on crates.io — skipping (first release or manual publish)."
-            exit 0
-          fi
-          cargo publish --no-verify  # quality gates already ran above
+          case "$STATUS" in
+            200 )
+              echo "$NAME $VERSION is already on crates.io — skipping upload."
+              echo "published=true" >> "$GITHUB_OUTPUT" ;;
+            404 )
+              echo "published=false" >> "$GITHUB_OUTPUT" ;;
+            * )
+              echo "::error::Unexpected HTTP $STATUS from crates.io while checking $NAME $VERSION."
+              exit 1 ;;
+          esac
+
+      # Short-lived token via crates.io trusted publishing (OIDC); revoked
+      # automatically when the job ends. No long-lived registry token is used.
+      - name: Authenticate with crates.io
+        if: steps.existing.outputs.published != 'true'
+        id: auth
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+
+      - name: Publish to crates.io
+        if: steps.existing.outputs.published != 'true'
+        run: cargo publish --locked --no-verify  # quality gates ran in the verify job
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+      # Fail loudly if what crates.io serves is not byte-identical to the attested
+      # copy (e.g. a version uploaded outside CI).
+      - name: Verify crates.io checksum matches the attested package
+        run: |
+          NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
+          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          LOCAL=$(sha256sum "$RUNNER_TEMP"/dist/*.crate | cut -d' ' -f1)
+          REMOTE=$(curl -fsS -A "$CRATES_IO_UA" "https://crates.io/api/v1/crates/$NAME/$VERSION" \
+            | jq -er '.version.checksum')
+          echo "attested: $LOCAL"
+          echo "crates.io: $REMOTE"
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "::error::crates.io checksum for $NAME $VERSION does not match the attested package."
+            exit 1
+          fi
 
       # Attach the signed .crate to a GitHub release so users can download
       # and verify it independently of crates.io.
@@ -115,7 +205,7 @@ jobs:
           TAG="${{ github.ref_name }}"
           VER="${TAG#v}"
           NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
-          CRATE_FILE=$(ls target/package/*.crate)
+          CRATE_FILE=$(ls "$RUNNER_TEMP"/dist/*.crate)
           CRATE_BASENAME=$(basename "$CRATE_FILE")
 
           cat > /tmp/release-notes.md <<NOTES
@@ -134,7 +224,14 @@ jobs:
           [crates.io/crates/${NAME}/${VER}](https://crates.io/crates/${NAME}/${VER}).
           NOTES
 
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --notes-file /tmp/release-notes.md \
-            "$CRATE_FILE"
+          # Re-runs after a partial failure: keep an existing release and only make
+          # sure the attested package is attached.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — uploading the attested package to it."
+            gh release upload "$TAG" "$CRATE_FILE" --clobber
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file /tmp/release-notes.md \
+              "$CRATE_FILE"
+          fi

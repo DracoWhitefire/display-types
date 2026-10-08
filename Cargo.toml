@@ -1,6 +1,6 @@
 [package]
 name = "display-types"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 rust-version = "1.85"
 description = "Shared display capability types for display connection negotiation."
@@ -19,3 +19,6 @@ serde = ["dep:serde", "bitflags/serde"]
 [dependencies]
 bitflags = "2.4"
 serde = { version = "1.0", optional = true, features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"

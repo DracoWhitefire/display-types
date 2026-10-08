@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-08
+
+### Added
+
+- `TryFrom<[u8; 3]> for ManufacturerId` (checked, equivalent to `from_ascii`) and
+  `From<ManufacturerId> for [u8; 3]`.
+
+### Fixed
+
+- **`ManufacturerId` deserialization bypassed its invariant** — with the `serde` feature,
+  any three bytes deserialized successfully (e.g. `[255, 0, 0]`), and `Display` /
+  `as_str` then panicked, including in release builds. Deserialization now rejects bytes
+  that are not ASCII uppercase `A`–`Z` with an error; the wire format (a plain 3-byte
+  array) is unchanged. For values built through the public field in violation of the
+  invariant, `as_str` now returns `""` in release builds (it still panics in debug builds)
+  and `Display` renders the raw bytes escaped, e.g. `\xff\x00\x00`, instead of panicking.
+
+- **`pixel_clock_khz` estimate truncation** — the CVT-RB fallback estimate was narrowed
+  from `u64` with `as u32`, silently dropping the high bits. EDID-supplied geometry such
+  as a 65534×63842 @ 1024 Hz CTA Type X timing (≈4.3 THz) wrapped to ≈264 MHz and could
+  pass bandwidth ceiling checks downstream. The intermediate product could also overflow
+  `u64` for very large refresh-rate numerators. The estimate is now computed in `u128`
+  and saturates at `u32::MAX`.
+
+### Internal
+
+- **Release promotion goes through a pull request** — `release-tag` now promotes `develop`
+  to `main` via a `release-promote/v*` branch and PR instead of pushing to `main` directly,
+  which branch protection rejects. Matches the workflow used by the other stack crates.
+- **Automated publish can be triggered by `release-tag`** — `publish.yml` gains a
+  `workflow_dispatch` trigger. Tags pushed with `GITHUB_TOKEN` do not start push-triggered
+  workflows, so `release-tag`'s "Trigger publish workflow" step
+  (`gh workflow run publish.yml`) could not start a publish run; `release-tag` also needed
+  `actions: write` to dispatch it. Dispatches against a non-tag ref (e.g. `main`) are
+  skipped, so they cannot publish or create a release.
+- **`release-tag` no longer tags after a failed promotion** — a failed merge of the
+  promote PR used to go unnoticed, after which the previous `main` commit was tagged with
+  the new version. The step now fails, tagging requires `main` to hold exactly the promoted
+  tree, and `publish.yml` refuses tags that do not match the `Cargo.toml` version.
+- **Publishing uses crates.io trusted publishing** — `publish.yml` obtains a short-lived
+  token through OIDC (`rust-lang/crates-io-auth-action`, revoked at the end of the job, and
+  short-lived regardless) instead of the long-lived `CARGO_REGISTRY_TOKEN` secret. The
+  upload job runs in the `release` environment, which only `v*` tags can deploy to and
+  which requires a maintainer's approval. Quality gates moved to a separate `verify` job,
+  so no dependency build scripts run and no cache is restored where publishing credentials
+  exist. The attested `.crate` is kept as a separate copy; after upload the job fails if
+  crates.io's checksum differs from it, and that same copy is attached to the GitHub
+  release. Re-running a partially failed publish reuses an existing GitHub release.
+- **Supply-chain hardening for CI** — every third-party action is pinned to a commit SHA
+  of a release tag, with `dependabot.yml` keeping the pins (and `Cargo.lock`) current. The
+  Rust toolchain itself still follows `stable`. `cargo-semver-checks` is installed as a
+  checksum-verified prebuilt binary (the version listed by the pinned `install-action`)
+  instead of being restored from a cached `~/.cargo/bin`. The security audit also runs
+  weekly.
+
 ## [0.4.0] - 2026-05-07
 
 ### Added

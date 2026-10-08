@@ -31,16 +31,20 @@ pub enum ManufactureDate {
 /// # Invariant
 ///
 /// All three bytes must be ASCII uppercase letters (`b'A'`–`b'Z'`, i.e. `0x41`–`0x5A`).
-/// The library only constructs this type after validating that constraint. If you construct
-/// one manually via the public field, you are responsible for maintaining the invariant;
-/// methods on this type will panic in debug builds if it is violated.
+/// The library only constructs this type after validating that constraint, and
+/// deserialization (with the `serde` feature) rejects bytes that violate it. If you construct
+/// one manually via the public field, you are responsible for maintaining the invariant:
+/// [`as_str`][Self::as_str] panics in debug builds and returns `""` in release builds if it
+/// is violated, and the `Display` impl renders the raw bytes escaped (e.g. `\xff\x00\x00`).
 ///
-/// Use [`ManufacturerId::from_ascii`] for a checked construction path.
+/// Use [`ManufacturerId::from_ascii`] or [`TryFrom<[u8; 3]>`][TryFrom] for a checked
+/// construction path.
 ///
 /// Available in all build configurations including bare `no_std`. The `Display` impl renders
 /// the three-character string directly, so `format!("{}", id)` and `id.to_string()` both work
 /// wherever a `Display` bound is satisfied.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "[u8; 3]", into = "[u8; 3]"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ManufacturerId(pub [u8; 3]);
 
@@ -57,22 +61,52 @@ impl ManufacturerId {
 
     /// Returns the ID as a `&str` slice.
     ///
-    /// Panics in debug builds if the stored bytes are not ASCII uppercase letters, which
-    /// would indicate the type invariant was violated at construction time.
+    /// If the stored bytes are not ASCII uppercase letters (the type invariant was violated
+    /// at construction time), panics in debug builds and returns `""` in release builds.
     pub fn as_str(&self) -> &str {
+        let valid = self.is_valid();
         debug_assert!(
-            self.0.iter().all(|&b| b.is_ascii_uppercase()),
+            valid,
             "ManufacturerId invariant violated: bytes must be ASCII uppercase A-Z, got {:?}",
             self.0
         );
-        // Safety: ASCII uppercase bytes are always valid UTF-8.
-        core::str::from_utf8(&self.0).expect("ManufacturerId bytes must be ASCII uppercase A-Z")
+        if valid {
+            // ASCII uppercase bytes are always valid UTF-8.
+            core::str::from_utf8(&self.0).unwrap_or("")
+        } else {
+            ""
+        }
+    }
+
+    fn is_valid(&self) -> bool {
+        self.0.iter().all(u8::is_ascii_uppercase)
+    }
+}
+
+impl TryFrom<[u8; 3]> for ManufacturerId {
+    type Error = &'static str;
+
+    /// Checked construction; equivalent to [`ManufacturerId::from_ascii`].
+    fn try_from(bytes: [u8; 3]) -> Result<Self, Self::Error> {
+        Self::from_ascii(bytes).ok_or("ManufacturerId bytes must be ASCII uppercase A-Z")
+    }
+}
+
+impl From<ManufacturerId> for [u8; 3] {
+    fn from(id: ManufacturerId) -> Self {
+        id.0
     }
 }
 
 impl core::fmt::Display for ManufacturerId {
+    /// Renders the three-letter ID. Bytes that violate the type invariant are rendered
+    /// escaped (e.g. `\xff\x00\x00`) rather than panicking.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(self.as_str())
+        if self.is_valid() {
+            f.write_str(self.as_str())
+        } else {
+            write!(f, "{}", self.0.escape_ascii())
+        }
     }
 }
 
@@ -146,6 +180,57 @@ mod tests {
     fn manufacturer_id_display() {
         let id = ManufacturerId::from_ascii(*b"SAM").unwrap();
         assert_eq!(id.to_string(), "SAM");
+    }
+
+    #[test]
+    fn manufacturer_id_try_from_checks_invariant() {
+        assert_eq!(
+            ManufacturerId::try_from(*b"GSM"),
+            Ok(ManufacturerId(*b"GSM"))
+        );
+        assert!(ManufacturerId::try_from([0xFF, 0x00, 0x00]).is_err());
+    }
+
+    #[test]
+    #[cfg(any(feature = "alloc", feature = "std"))]
+    fn manufacturer_id_display_escapes_invalid_bytes() {
+        // Reachable only by bypassing the invariant via the public field. Display must
+        // render the real bytes without panicking, in debug and release builds alike.
+        assert_eq!(
+            ManufacturerId([0xFF, 0x00, 0x00]).to_string(),
+            r"\xff\x00\x00"
+        );
+        assert_eq!(ManufacturerId(*b"del").to_string(), "del");
+    }
+
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn manufacturer_id_as_str_invalid_bytes_is_empty_in_release() {
+        assert_eq!(ManufacturerId([0xFF, 0x00, 0x00]).as_str(), "");
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "ManufacturerId invariant violated")]
+    fn manufacturer_id_as_str_invalid_bytes_panics_in_debug() {
+        let _ = ManufacturerId([0xFF, 0x00, 0x00]).as_str();
+    }
+
+    #[test]
+    #[cfg(all(feature = "serde", any(feature = "alloc", feature = "std")))]
+    fn manufacturer_id_serde_wire_format_is_byte_array() {
+        let id = ManufacturerId(*b"DEL");
+        let json = serde_json::to_string(&id).unwrap();
+        assert_eq!(json, "[68,69,76]");
+        assert_eq!(serde_json::from_str::<ManufacturerId>(&json).unwrap(), id);
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn manufacturer_id_deserialize_rejects_invalid_bytes() {
+        // Previously deserialized successfully and then panicked in `Display`.
+        assert!(serde_json::from_str::<ManufacturerId>("[255,0,0]").is_err());
+        assert!(serde_json::from_str::<ManufacturerId>("[100,101,108]").is_err()); // "del"
     }
 
     // --- MonitorString ---

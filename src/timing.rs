@@ -16,6 +16,11 @@ use crate::{CvtAlgorithm, RefreshRate, VideoMode};
 ///
 /// Returns `0` when neither `mode.pixel_clock_khz` nor `mode.refresh_rate` is set.
 ///
+/// The estimate saturates at `u32::MAX` rather than wrapping. Mode geometry comes from
+/// sink-supplied EDID data and can describe clocks far beyond any real link (e.g. a
+/// 65536×65536 @ 1024 Hz CTA Type X timing); a saturated value fails every bandwidth
+/// ceiling check, whereas a wrapped one could pass.
+///
 /// # Accuracy of the fallback estimate
 ///
 /// CVT-RB is the dominant timing standard for modern display modes. For typical consumer
@@ -33,11 +38,12 @@ pub fn pixel_clock_khz(mode: &VideoMode) -> u32 {
     let Some(rr) = mode.refresh_rate else {
         return 0;
     };
-    let h_total = mode.width as u64 + 160;
-    let v_total = mode.height as u64 + 8;
-    let numer = rr.numer() as u64;
-    let denom = rr.denom() as u64;
-    (h_total * v_total * numer / (denom * 1000)) as u32
+    // u128: (u16::MAX + 160) × (u16::MAX + 8) × u32::MAX exceeds u64::MAX.
+    let h_total = u128::from(mode.width) + 160;
+    let v_total = u128::from(mode.height) + 8;
+    let numer = u128::from(rr.numer());
+    let denom = u128::from(rr.denom());
+    u32::try_from(h_total * v_total * numer / (denom * 1000)).unwrap_or(u32::MAX)
 }
 
 #[cfg(test)]
@@ -89,6 +95,20 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(pixel_clock_khz(&mode), 0);
+    }
+
+    #[test]
+    fn oversized_estimate_saturates() {
+        // (65534 + 160) × (63842 + 8) × 1024 / 1000 ≈ 4.295e9 kHz, just above u32::MAX.
+        // A truncating cast wrapped this to 264_089 kHz, which passed TMDS ceiling checks.
+        let mode = VideoMode::new(65534, 63842, 1024u32, false);
+        assert_eq!(pixel_clock_khz(&mode), u32::MAX);
+    }
+
+    #[test]
+    fn maximum_geometry_estimate_saturates() {
+        let mode = VideoMode::new(u16::MAX, u16::MAX, u32::MAX, false);
+        assert_eq!(pixel_clock_khz(&mode), u32::MAX);
     }
 }
 
