@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `TryFrom<[u8; 3]> for ManufacturerId` (checked, equivalent to `from_ascii`) and
+  `From<ManufacturerId> for [u8; 3]`.
+
 ### Fixed
+
+- **`ManufacturerId` deserialization bypassed its invariant** — with the `serde` feature,
+  any three bytes deserialized successfully (e.g. `[255, 0, 0]`), and `Display` /
+  `as_str` then panicked, including in release builds. Deserialization now rejects bytes
+  that are not ASCII uppercase `A`–`Z` with an error; the wire format (a plain 3-byte
+  array) is unchanged. For values built through the public field in violation of the
+  invariant, `as_str` now returns `""` in release builds (it still panics in debug builds)
+  and `Display` renders the raw bytes escaped, e.g. `\xff\x00\x00`, instead of panicking.
 
 - **`pixel_clock_khz` estimate truncation** — the CVT-RB fallback estimate was narrowed
   from `u64` with `as u32`, silently dropping the high bits. EDID-supplied geometry such
