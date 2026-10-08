@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`pixel_clock_khz` estimate truncation** — the CVT-RB fallback estimate was narrowed
+  from `u64` with `as u32`, silently dropping the high bits. EDID-supplied geometry such
+  as a 65534×63842 @ 1024 Hz CTA Type X timing (≈4.3 THz) wrapped to ≈264 MHz and could
+  pass bandwidth ceiling checks downstream. The intermediate product could also overflow
+  `u64` for very large refresh-rate numerators. The estimate is now computed in `u128`
+  and saturates at `u32::MAX`.
+
 ## [0.4.0] - 2026-05-07
 
 ### Added
