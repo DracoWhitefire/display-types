@@ -244,8 +244,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/dist"
           cp target/package/*.crate "$RUNNER_TEMP/dist/"
 
-      # The approver reviewed the sha256 shown by the summary job. Refuse to attest
-      # or upload anything else.
+      # The approver reviewed the sha256 shown by the summary job. Refuse to attest a
+      # different package. (`cargo publish` re-packages for the upload; the checksum
+      # step after it verifies that crates.io received the same bytes.)
       - name: Check package matches the release summary
         env:
           REVIEWED_SHA256: ${{ needs.summary.outputs.crate_sha256 }}
