@@ -9,6 +9,9 @@ env:
 jobs:
   tag:
     name: Promote to main and tag
+    # Always operates on develop (see checkout below); refuse to run a copy of this
+    # workflow from another branch, which may be outdated or modified.
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       contents: write
