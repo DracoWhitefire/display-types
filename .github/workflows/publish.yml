@@ -101,6 +101,81 @@ jobs:
       - name: Build (no_std)
         run: cargo build --locked --no-default-features
 
+  # What is about to be released, shown on the run page while the publish job
+  # waits for approval in the `release` environment. Packages the crate the same
+  # way the publish job does (compiling nothing, holding no credentials) so the
+  # approver sees the exact sha256 that will be uploaded.
+  summary:
+    name: Release summary
+    needs: check-branch
+    if: needs.check-branch.outputs.on_main == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      crate_sha256: ${{ steps.package.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0  # previous release tag and history for the comparison
+          persist-credentials: false
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
+
+      - name: Package crate
+        id: package
+        run: |
+          cargo package --locked --no-verify
+          CRATE_FILE=$(ls target/package/*.crate)
+          echo "file=$(basename "$CRATE_FILE")" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum "$CRATE_FILE" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Write release summary
+        env:
+          CRATE_FILE: ${{ steps.package.outputs.file }}
+          CRATE_SHA256: ${{ steps.package.outputs.sha256 }}
+        run: |
+          NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
+          VERSION="${GITHUB_REF_NAME#v}"
+          SHA=$(git rev-parse HEAD)
+          REPO_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          PREV=$(git tag --merged HEAD --sort=-v:refname --list 'v[0-9]*.[0-9]*.[0-9]*' \
+            | grep -vx "$GITHUB_REF_NAME" | head -1 || true)
+          {
+            echo "## ${NAME} ${GITHUB_REF_NAME}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Crate | \`${NAME}\` ${VERSION} |"
+            echo "| Commit | [\`${SHA:0:12}\`](${REPO_URL}/commit/${SHA}) |"
+            if [ -n "$PREV" ]; then
+              echo "| Since ${PREV} | [compare](${REPO_URL}/compare/${PREV}...${GITHUB_REF_NAME}), $(git rev-list --count "${PREV}..HEAD") commits |"
+            else
+              echo "| Since | no previous release tag found |"
+            fi
+            echo "| Package | \`${CRATE_FILE}\` |"
+            echo "| sha256 | \`${CRATE_SHA256}\` |"
+            echo
+            if [ -n "$PREV" ] && ! git diff --quiet "$PREV" HEAD -- .github/; then
+              echo "> [!WARNING]"
+              echo "> Files under \`.github/\` changed since ${PREV}, including workflows used by this release."
+              echo
+              echo '```'
+              git diff --stat "$PREV" HEAD -- .github/
+              echo '```'
+              echo
+            fi
+            echo "### Changelog"
+            echo
+            SECTION=$(awk -v hdr="## [${VERSION}]" 'index($0, hdr) == 1 { on = 1; next } on && /^## \[/ { exit } on { print }' CHANGELOG.md)
+            if [ -n "$(echo "$SECTION" | tr -d '[:space:]')" ]; then
+              echo "$SECTION"
+            else
+              echo "_No \`## [${VERSION}]\` section found in CHANGELOG.md._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # Packaging, attestation and upload. Runs in the `release` environment (deployable
   # only from v* tags), which crates.io trusted publishing is bound to. Nothing is
   # compiled here and no cache is restored, so no third-party build code runs while
