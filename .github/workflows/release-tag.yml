@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: read
+      actions: write  # `gh workflow run publish.yml` (workflow_dispatch) needs write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: develop
           fetch-depth: 0
@@ -81,16 +81,30 @@ jobs:
             --head "${BRANCH}" \
             --title "Release v${VERSION}" \
             --body "Promote release v${VERSION} from develop to main.")
+          MERGED=false
           for attempt in 1 2 3; do
-            gh pr merge "$PR_URL" --merge && break
-            [ $attempt -lt 3 ] && sleep 10
+            if gh pr merge "$PR_URL" --merge; then
+              MERGED=true
+              break
+            fi
+            [ "$attempt" -lt 3 ] && sleep 10
           done
+          if [ "$MERGED" != true ]; then
+            echo "::error::Could not merge $PR_URL into main — not tagging."
+            exit 1
+          fi
           git push origin --delete "${BRANCH}" || true
 
       - name: Create and push tag
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           git fetch origin main
+          # Release tags cannot be moved or deleted (ruleset), so refuse to tag
+          # unless main now holds exactly the tree that was promoted.
+          if [ "$(git rev-parse 'origin/main^{tree}')" != "$(git rev-parse 'HEAD^{tree}')" ]; then
+            echo "::error::origin/main does not match the promoted release commit — not tagging v${VERSION}."
+            exit 1
+          fi
           git checkout main
           git tag "v${VERSION}" -m "Release v${VERSION}"
           git push origin "v${VERSION}"

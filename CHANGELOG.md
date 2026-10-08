@@ -37,8 +37,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated publish can be triggered by `release-tag`** — `publish.yml` gains a
   `workflow_dispatch` trigger. Tags pushed with `GITHUB_TOKEN` do not start push-triggered
   workflows, so `release-tag`'s "Trigger publish workflow" step
-  (`gh workflow run publish.yml`) could not start a publish run. Dispatches against a
-  non-tag ref (e.g. `main`) are skipped, so they cannot publish or create a release.
+  (`gh workflow run publish.yml`) could not start a publish run; `release-tag` also needed
+  `actions: write` to dispatch it. Dispatches against a non-tag ref (e.g. `main`) are
+  skipped, so they cannot publish or create a release.
+- **`release-tag` no longer tags after a failed promotion** — a failed merge of the
+  promote PR used to go unnoticed, after which the previous `main` commit was tagged with
+  the new version. The step now fails, tagging requires `main` to hold exactly the promoted
+  tree, and `publish.yml` refuses tags that do not match the `Cargo.toml` version.
+- **Publishing uses crates.io trusted publishing** — `publish.yml` obtains a short-lived
+  token through OIDC (`rust-lang/crates-io-auth-action`, revoked at the end of the job, and
+  short-lived regardless) instead of the long-lived `CARGO_REGISTRY_TOKEN` secret. The
+  upload job runs in the `release` environment, which only `v*` tags can deploy to and
+  which requires a maintainer's approval. Quality gates moved to a separate `verify` job,
+  so no dependency build scripts run and no cache is restored where publishing credentials
+  exist. The attested `.crate` is kept as a separate copy; after upload the job fails if
+  crates.io's checksum differs from it, and that same copy is attached to the GitHub
+  release. Re-running a partially failed publish reuses an existing GitHub release.
+- **Supply-chain hardening for CI** — every third-party action is pinned to a commit SHA
+  of a release tag, with `dependabot.yml` keeping the pins (and `Cargo.lock`) current. The
+  Rust toolchain itself still follows `stable`. `cargo-semver-checks` is installed as a
+  checksum-verified prebuilt binary (the version listed by the pinned `install-action`)
+  instead of being restored from a cached `~/.cargo/bin`. The security audit also runs
+  weekly.
 
 ## [0.4.0] - 2026-05-07
 
