@@ -15,6 +15,15 @@ jobs:
       actions: write  # `gh workflow run publish.yml` (workflow_dispatch) needs write
       pull-requests: write
     steps:
+      # Always operates on develop (see checkout below). Fail loudly when started
+      # from another branch, whose copy of this workflow may be outdated. (A modified
+      # copy could remove this check; it only guards against mistakes.)
+      - name: Require develop
+        if: github.ref != 'refs/heads/develop'
+        run: |
+          echo "::error::Run this workflow from develop (started from ${GITHUB_REF})."
+          exit 1
+
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: develop
