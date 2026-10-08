@@ -65,8 +65,9 @@ jobs:
           persist-credentials: false
 
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       - name: Cache
@@ -124,7 +125,9 @@ jobs:
           persist-credentials: false
 
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
 
       # Materialise the .crate package before signing. --no-verify skips the
       # verification build (already done by the verify job), so no dependency
