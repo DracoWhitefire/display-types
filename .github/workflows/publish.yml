@@ -128,9 +128,15 @@ jobs:
 
       # Materialise the .crate package before signing. --no-verify skips the
       # verification build (already done by the verify job), so no dependency
-      # build scripts run in this job.
+      # build scripts run in this job. `cargo publish` re-packages into
+      # target/package/, so the attested file is kept as a separate copy outside
+      # the package root; that copy is what gets attested, compared against
+      # crates.io, and attached to the GitHub release.
       - name: Package crate
-        run: cargo package --locked --no-verify
+        run: |
+          cargo package --locked --no-verify
+          mkdir -p "$RUNNER_TEMP/dist"
+          cp target/package/*.crate "$RUNNER_TEMP/dist/"
 
       # Sign the .crate with SLSA Build Level 2 provenance.  The attestation
       # is stored in GitHub's attestation API and is verifiable offline with:
@@ -138,7 +144,7 @@ jobs:
       - name: Attest crate provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
-          subject-path: target/package/*.crate
+          subject-path: ${{ runner.temp }}/dist/*.crate
 
       - name: Check whether this version is already on crates.io
         id: existing
@@ -171,13 +177,13 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
-      # The attestation covers target/package/*.crate. Fail loudly if what crates.io
-      # serves is not byte-identical to it (e.g. a version uploaded outside CI).
+      # Fail loudly if what crates.io serves is not byte-identical to the attested
+      # copy (e.g. a version uploaded outside CI).
       - name: Verify crates.io checksum matches the attested package
         run: |
           NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
           VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
-          LOCAL=$(sha256sum target/package/*.crate | cut -d' ' -f1)
+          LOCAL=$(sha256sum "$RUNNER_TEMP"/dist/*.crate | cut -d' ' -f1)
           REMOTE=$(curl -fsS -A "$CRATES_IO_UA" "https://crates.io/api/v1/crates/$NAME/$VERSION" \
             | jq -er '.version.checksum')
           echo "attested: $LOCAL"
@@ -196,7 +202,7 @@ jobs:
           TAG="${{ github.ref_name }}"
           VER="${TAG#v}"
           NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
-          CRATE_FILE=$(ls target/package/*.crate)
+          CRATE_FILE=$(ls "$RUNNER_TEMP"/dist/*.crate)
           CRATE_BASENAME=$(basename "$CRATE_FILE")
 
           cat > /tmp/release-notes.md <<NOTES
