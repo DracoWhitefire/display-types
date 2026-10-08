@@ -221,7 +221,14 @@ jobs:
           [crates.io/crates/${NAME}/${VER}](https://crates.io/crates/${NAME}/${VER}).
           NOTES
 
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --notes-file /tmp/release-notes.md \
-            "$CRATE_FILE"
+          # Re-runs after a partial failure: keep an existing release and only make
+          # sure the attested package is attached.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — uploading the attested package to it."
+            gh release upload "$TAG" "$CRATE_FILE" --clobber
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file /tmp/release-notes.md \
+              "$CRATE_FILE"
+          fi
