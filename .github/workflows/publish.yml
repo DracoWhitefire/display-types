@@ -135,13 +135,22 @@ jobs:
         env:
           CRATE_FILE: ${{ steps.package.outputs.file }}
           CRATE_SHA256: ${{ steps.package.outputs.sha256 }}
+          CRATES_IO_UA: ${{ github.repository }} publish workflow (https://github.com/${{ github.repository }})
         run: |
           NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
           VERSION="${GITHUB_REF_NAME#v}"
           SHA=$(git rev-parse HEAD)
           REPO_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
-          PREV=$(git tag --merged HEAD --sort=-v:refname --list 'v[0-9]*.[0-9]*.[0-9]*' \
-            | grep -vx "$GITHUB_REF_NAME" | head -1 || true)
+          # Baseline: the highest strict vX.Y.Z tag reachable from HEAD that sorts below
+          # this release. Pre-release or malformed tags (v1.2.3-rc.1, v1.2.3.4) are ignored.
+          PREV=$( { git tag --merged HEAD --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$'; \
+                    echo "$GITHUB_REF_NAME"; } \
+            | sort -uV | awk -v cur="$GITHUB_REF_NAME" '$0 == cur { print prev; exit } { prev = $0 }')
+          if [ -n "$PREV" ]; then
+            PREV_INFO=$(git log -1 --format='%h, %cs' "$PREV")
+            PREV_STATUS=$(curl -sS -A "$CRATES_IO_UA" -o /dev/null -w '%{http_code}' \
+              "https://crates.io/api/v1/crates/$NAME/${PREV#v}" || echo 000)
+          fi
           {
             echo "## ${NAME} ${GITHUB_REF_NAME}"
             echo
@@ -150,13 +159,18 @@ jobs:
             echo "| Crate | \`${NAME}\` ${VERSION} |"
             echo "| Commit | [\`${SHA:0:12}\`](${REPO_URL}/commit/${SHA}) |"
             if [ -n "$PREV" ]; then
-              echo "| Since ${PREV} | [compare](${REPO_URL}/compare/${PREV}...${GITHUB_REF_NAME}), $(git rev-list --count "${PREV}..HEAD") commits |"
+              echo "| Since ${PREV} (${PREV_INFO}) | [compare](${REPO_URL}/compare/${PREV}...${GITHUB_REF_NAME}), $(git rev-list --count "${PREV}..HEAD") commits |"
             else
               echo "| Since | no previous release tag found |"
             fi
             echo "| Package | \`${CRATE_FILE}\` |"
             echo "| sha256 | \`${CRATE_SHA256}\` |"
             echo
+            if [ -n "$PREV" ] && [ "$PREV_STATUS" != 200 ]; then
+              echo "> [!CAUTION]"
+              echo "> Baseline ${PREV} is not a published version on crates.io (HTTP ${PREV_STATUS}). It may be a stray or failed release tag; compare against the last published version instead."
+              echo
+            fi
             if [ -n "$PREV" ] && ! git diff --quiet "$PREV" HEAD -- .github/; then
               echo "> [!WARNING]"
               echo "> Files under \`.github/\` changed since ${PREV}, including workflows used by this release."
