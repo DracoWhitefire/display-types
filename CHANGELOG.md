@@ -39,6 +39,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflows, so `release-tag`'s "Trigger publish workflow" step
   (`gh workflow run publish.yml`) could not start a publish run. Dispatches against a
   non-tag ref (e.g. `main`) are skipped, so they cannot publish or create a release.
+- **Publishing uses crates.io trusted publishing** — `publish.yml` obtains a short-lived
+  token through OIDC (`rust-lang/crates-io-auth-action`) instead of the long-lived
+  `CARGO_REGISTRY_TOKEN` secret. The upload job runs in the `release` environment, which
+  only `v*` tags can deploy to. Quality gates moved to a separate `verify` job, so no
+  dependency build scripts run and no cache is restored where publishing credentials exist.
+  After upload, the job fails if crates.io's checksum differs from the attested `.crate`.
+- **Supply-chain hardening for CI** — every third-party action is pinned to a commit SHA,
+  with `dependabot.yml` keeping the pins (and `Cargo.lock`) current. `cargo-semver-checks`
+  is installed as a pinned, checksum-verified binary instead of being restored from a
+  cached `~/.cargo/bin`. The security audit also runs weekly.
 
 ## [0.4.0] - 2026-05-07
 
