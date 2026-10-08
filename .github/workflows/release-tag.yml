@@ -89,6 +89,10 @@ jobs:
             fi
             [ "$attempt" -lt 3 ] && sleep 10
           done
+          if [ "$MERGED" != true ]; then
+            echo "::error::Could not merge $PR_URL into main — not tagging."
+            exit 1
+          fi
           git push origin --delete "${BRANCH}" || true
 
       - name: Create and push tag
