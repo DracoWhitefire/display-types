@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-08
+
+### Internal
+
+- **Release summary before approval** — `publish.yml` gains a `summary` job that shows the
+  crate, version and commit, changes since the previous published release (ignoring
+  pre-release or malformed tags, and flagging a baseline that is not on crates.io), changes
+  to workflow, toolchain and build configuration, manifest changes, the changelog section,
+  and the `.crate` sha256 with a command to reproduce it, on the run page while the publish
+  job waits for approval. The publish job refuses to attest a package whose sha256 differs
+  from the reviewed one; after upload it fails if crates.io's checksum differs.
+- **Release workflows only run from `develop`** — `release-prep` and `release-tag` fail when
+  started from another branch, so an outdated copy of the workflow is not run against
+  `develop` by mistake.
+- **README documents release provenance** — a badge shows whether crates.io requires trusted
+  publishing for this crate, and "Verifying releases" now states which versions carry SLSA
+  provenance (from 0.4.0), which were uploaded through trusted publishing (from 0.4.1) or
+  with an API token (up to 0.4.0), and how to look up a version's publishing details on
+  crates.io.
+
 ## [0.4.1] - 2026-10-08
 
 ### Added
