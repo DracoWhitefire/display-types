@@ -102,6 +102,10 @@ jobs:
     if: needs.check-branch.outputs.on_main == 'true'
     runs-on: ubuntu-latest
     environment: release
+    env:
+      # crates.io's data access policy requires an identifying User-Agent and
+      # answers curl's default one with 403.
+      CRATES_IO_UA: ${{ github.repository }} publish workflow (https://github.com/${{ github.repository }})
     permissions:
       id-token: write      # OIDC: SLSA provenance signing and crates.io trusted publishing
       attestations: write  # write signed provenance to GitHub's attestation store
@@ -133,14 +137,18 @@ jobs:
         run: |
           NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
           VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          STATUS=$(curl -sS -A "$CRATES_IO_UA" -o /dev/null -w "%{http_code}" \
             "https://crates.io/api/v1/crates/$NAME/$VERSION")
-          if [ "$STATUS" = "200" ]; then
-            echo "$NAME $VERSION is already on crates.io — skipping upload."
-            echo "published=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          fi
+          case "$STATUS" in
+            200 )
+              echo "$NAME $VERSION is already on crates.io — skipping upload."
+              echo "published=true" >> "$GITHUB_OUTPUT" ;;
+            404 )
+              echo "published=false" >> "$GITHUB_OUTPUT" ;;
+            * )
+              echo "::error::Unexpected HTTP $STATUS from crates.io while checking $NAME $VERSION."
+              exit 1 ;;
+          esac
 
       # Short-lived token via crates.io trusted publishing (OIDC); revoked
       # automatically when the job ends. No long-lived registry token is used.
@@ -162,7 +170,8 @@ jobs:
           NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
           VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
           LOCAL=$(sha256sum target/package/*.crate | cut -d' ' -f1)
-          REMOTE=$(curl -s "https://crates.io/api/v1/crates/$NAME/$VERSION" | jq -r '.version.checksum')
+          REMOTE=$(curl -fsS -A "$CRATES_IO_UA" "https://crates.io/api/v1/crates/$NAME/$VERSION" \
+            | jq -er '.version.checksum')
           echo "attested: $LOCAL"
           echo "crates.io: $REMOTE"
           if [ "$LOCAL" != "$REMOTE" ]; then
