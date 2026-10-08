@@ -182,7 +182,7 @@ jobs:
   # the OIDC / crates.io token is available.
   publish:
     name: Publish to crates.io
-    needs: [check-branch, verify]
+    needs: [check-branch, verify, summary]
     if: needs.check-branch.outputs.on_main == 'true'
     runs-on: ubuntu-latest
     environment: release
@@ -215,6 +215,19 @@ jobs:
           cargo package --locked --no-verify
           mkdir -p "$RUNNER_TEMP/dist"
           cp target/package/*.crate "$RUNNER_TEMP/dist/"
+
+      # The approver reviewed the sha256 shown by the summary job. Refuse to attest
+      # or upload anything else.
+      - name: Check package matches the release summary
+        env:
+          REVIEWED_SHA256: ${{ needs.summary.outputs.crate_sha256 }}
+        run: |
+          ACTUAL=$(sha256sum "$RUNNER_TEMP"/dist/*.crate | cut -d' ' -f1)
+          if [ -z "$REVIEWED_SHA256" ] || [ "$ACTUAL" != "$REVIEWED_SHA256" ]; then
+            echo "::error::Package sha256 $ACTUAL does not match the reviewed summary (${REVIEWED_SHA256:-missing})."
+            exit 1
+          fi
+          echo "Package matches the reviewed summary: $ACTUAL"
 
       # Sign the .crate with SLSA Build Level 2 provenance.  The attestation
       # is stored in GitHub's attestation API and is verifiable offline with:
