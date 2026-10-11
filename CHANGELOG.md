@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- **No CI run on promotion PRs** — CI no longer runs on pull requests into `main`. The only
+  ones are `release-tag`'s `release-promote/*` PRs, whose content already passed CI on
+  `develop`; opened by `github-actions[bot]`, their runs were held for approval and listed
+  as `action_required` or failed.
+
 ## [0.4.2] - 2026-10-08
 
 ### Internal
