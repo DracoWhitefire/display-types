@@ -8,7 +8,7 @@
 [![SLSA Level 2](https://slsa.dev/images/gh-badge-level2.svg)](https://slsa.dev)
 [![trusted publishing only](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcrates.io%2Fapi%2Fv1%2Fcrates%2Fdisplay-types&query=%24.crate.trustpub_only&label=trusted%20publishing%20only)](#verifying-releases)
 
-> **Part of [Ashlar](https://github.com/ashlar-display)** — a display connection stack in Rust,
+> **Part of [Ashlar](https://ashlar-display.org)** — a display connection stack in Rust,
 > HDMI 2.1 first: from EDID parsing through mode negotiation to FRL link training.
 >
 > **display-types** ·
