@@ -7,6 +7,7 @@ description = "Shared display capability types for display connection negotiatio
 readme = "README.md"
 license = "MPL-2.0"
 repository = "https://github.com/DracoWhitefire/display-types"
+homepage = "https://ashlar-display.org"
 keywords = ["ashlar", "hdmi", "no-std", "edid", "display"]
 categories = ["hardware-support", "embedded", "no-std", "no-std::no-alloc"]
 
