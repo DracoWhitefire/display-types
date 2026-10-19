@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every rate, so consumers need no wildcard guess for rates they do not know; a future
   rate gets its lane count where it is added. `FrlLanes::count()` gives the number.
 
+### Changed
+
+- **Part of Ashlar** — the README now opens with a block naming the
+  [Ashlar](https://ashlar-display.org) stack and linking the other crates in it. Keywords
+  are aligned across the stack, with `ashlar` and `hdmi` on every crate; `ashlar` is added.
+  Categories gain `no-std` and `no-std::no-alloc`. The crate's `homepage` is now the Ashlar
+  website.
+
 ### Internal
 
 - **No CI run on promotion PRs** — CI no longer runs on pull requests into `main`. The only
