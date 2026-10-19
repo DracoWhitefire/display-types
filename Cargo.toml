@@ -8,7 +8,7 @@ readme = "README.md"
 license = "MPL-2.0"
 repository = "https://github.com/DracoWhitefire/display-types"
 keywords = ["ashlar", "hdmi", "no-std", "edid", "display"]
-categories = ["hardware-support", "embedded"]
+categories = ["hardware-support", "embedded", "no-std", "no-std::no-alloc"]
 
 [features]
 default = ["std"]

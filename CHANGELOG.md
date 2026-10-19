@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Part of Ashlar** — the README now opens with a block naming the
   [Ashlar](https://github.com/ashlar-display) stack and linking the other crates in it.
   Keywords are aligned across the stack, with `ashlar` and `hdmi` on every crate; `ashlar`
-  is added.
+  is added. Categories gain `no-std` and `no-std::no-alloc`.
 
 ### Internal
 
