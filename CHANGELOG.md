@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Part of Ashlar** — the README now opens with a block naming the
+  [Ashlar](https://github.com/ashlar-display) stack and linking the other crates in it.
+  Keywords are aligned across the stack, with `ashlar` and `hdmi` on every crate; `ashlar`
+  is added.
+
 ### Internal
 
 - **No CI run on promotion PRs** — CI no longer runs on pull requests into `main`. The only
