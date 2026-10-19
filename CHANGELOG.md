@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `HdmiForumFrl::lanes()` — the number of lanes an FRL link at the rate uses, as the new
+  `FrlLanes` (`Three`, `Four`), or `None` for `NotSupported` (TMDS only). Defined here, for
+  every rate, so consumers need no wildcard guess for rates they do not know; a future
+  rate gets its lane count where it is added. `FrlLanes::count()` gives the number.
+
 ### Internal
 
 - **No CI run on promotion PRs** — CI no longer runs on pull requests into `main`. The only
