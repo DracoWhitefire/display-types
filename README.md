@@ -1,6 +1,6 @@
 # display-types
 
-[![CI](https://github.com/DracoWhitefire/display-types/actions/workflows/ci.yml/badge.svg)](https://github.com/DracoWhitefire/display-types/actions/workflows/ci.yml)
+[![CI](https://github.com/ashlar-display/display-types/actions/workflows/ci.yml/badge.svg)](https://github.com/ashlar-display/display-types/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/display-types.svg)](https://crates.io/crates/display-types)
 [![docs.rs](https://docs.rs/display-types/badge.svg)](https://docs.rs/display-types)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
@@ -72,11 +72,19 @@ Releases are built on GitHub Actions and attested with
 [GitHub CLI](https://cli.github.com/) and run:
 
 ```sh
-gh attestation verify display-types-X.Y.Z.crate --repo DracoWhitefire/display-types
+gh attestation verify display-types-X.Y.Z.crate --repo ashlar-display/display-types
+```
+
+Releases from before the repository moved to the `ashlar-display` organization (0.4.0 to
+0.4.2) were attested under its previous owner, and verify against it:
+
+```sh
+gh attestation verify display-types-X.Y.Z.crate --owner DracoWhitefire \
+  --signer-repo DracoWhitefire/display-types
 ```
 
 The attested `.crate` is attached to each
-[GitHub release](https://github.com/DracoWhitefire/display-types/releases).
+[GitHub release](https://github.com/ashlar-display/display-types/releases).
 
 Releases from 0.4.1 are uploaded through crates.io
 [trusted publishing](https://rust-lang.github.io/rfcs/3691-trusted-publishing-cratesio.html): the publish

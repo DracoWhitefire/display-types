@@ -5,7 +5,7 @@
 ## Clone and build
 
 ```sh
-git clone https://github.com/DracoWhitefire/display-types.git
+git clone https://github.com/ashlar-display/display-types.git
 cd display-types
 cargo build
 ```
