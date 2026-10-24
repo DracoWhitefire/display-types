@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are aligned across the stack, with `ashlar` and `hdmi` on every crate; `ashlar` is added.
   Categories gain `no-std` and `no-std::no-alloc`. The crate's `homepage` is now the Ashlar
   website.
+- **Moved to the `ashlar-display` organization** — the repository is now
+  `ashlar-display/display-types` (the old URLs redirect), and `repository` points there.
+  Releases are attested and published from the new repository; 0.4.0 to 0.4.2, attested
+  before the move, verify with `--owner DracoWhitefire --signer-repo
+  DracoWhitefire/display-types` (see "Verifying releases" in the README). The code of
+  conduct is now the organization's, shared by every Ashlar repository; the repository's
+  own copy is removed.
 
 ### Internal
 
