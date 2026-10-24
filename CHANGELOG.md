@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-24
+
+### Added
+
+- `HdmiForumFrl::lanes()` — the data lanes a link at the rate carries, as the new
+  `HdmiLanes` (`Three`, `Four`): three for TMDS (`NotSupported`, its three data channels)
+  and the 3-lane FRL rates, four for the 4-lane rates. Defined here for every rate, so
+  consumers need no rule of their own, and no wildcard guess for rates they do not know;
+  a future rate gets its lane count where it is added. `HdmiLanes::count()` gives the
+  number; `HdmiLanes` is ordered by lane count.
+
+### Changed
+
+- **Part of Ashlar** — the README now opens with a block naming the
+  [Ashlar](https://ashlar-display.org) stack and linking the other crates in it. Keywords
+  are aligned across the stack, with `ashlar` and `hdmi` on every crate; `ashlar` is added.
+  Categories gain `no-std` and `no-std::no-alloc`. The crate's `homepage` is now the Ashlar
+  website.
+- **Moved to the `ashlar-display` organization** — the repository is now
+  `ashlar-display/display-types` (the old URLs redirect), and `repository` points there.
+  Releases are attested and published from the new repository; 0.4.0 to 0.4.2, attested
+  before the move, verify with `--owner DracoWhitefire --signer-repo
+  DracoWhitefire/display-types` (see "Verifying releases" in the README). The code of
+  conduct is now the organization's, shared by every Ashlar repository; the repository's
+  own copy is removed.
+
+### Internal
+
+- **No CI run on promotion PRs** — CI no longer runs on pull requests into `main`. The only
+  ones are `release-tag`'s `release-promote/*` PRs, whose content already passed CI on
+  `develop`; opened by `github-actions[bot]`, their runs were held for approval and listed
+  as `action_required` or failed.
+
 ## [0.4.2] - 2026-10-08
 
 ### Internal

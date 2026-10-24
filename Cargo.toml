@@ -1,14 +1,15 @@
 [package]
 name = "display-types"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2024"
 rust-version = "1.85"
 description = "Shared display capability types for display connection negotiation."
 readme = "README.md"
 license = "MPL-2.0"
-repository = "https://github.com/DracoWhitefire/display-types"
-keywords = ["edid", "display", "hdmi", "no-std"]
-categories = ["hardware-support", "embedded"]
+repository = "https://github.com/ashlar-display/display-types"
+homepage = "https://ashlar-display.org"
+keywords = ["ashlar", "hdmi", "no-std", "edid", "display"]
+categories = ["hardware-support", "embedded", "no-std", "no-std::no-alloc"]
 
 [features]
 default = ["std"]

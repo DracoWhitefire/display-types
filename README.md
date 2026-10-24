@@ -1,12 +1,24 @@
 # display-types
 
-[![CI](https://github.com/DracoWhitefire/display-types/actions/workflows/ci.yml/badge.svg)](https://github.com/DracoWhitefire/display-types/actions/workflows/ci.yml)
+[![CI](https://github.com/ashlar-display/display-types/actions/workflows/ci.yml/badge.svg)](https://github.com/ashlar-display/display-types/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/display-types.svg)](https://crates.io/crates/display-types)
 [![docs.rs](https://docs.rs/display-types/badge.svg)](https://docs.rs/display-types)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 [![Rust 1.85+](https://img.shields.io/badge/rustc-1.85+-orange.svg)](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0.html)
 [![SLSA Level 2](https://slsa.dev/images/gh-badge-level2.svg)](https://slsa.dev)
 [![trusted publishing only](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcrates.io%2Fapi%2Fv1%2Fcrates%2Fdisplay-types&query=%24.crate.trustpub_only&label=trusted%20publishing%20only)](#verifying-releases)
+
+> **Part of [Ashlar](https://ashlar-display.org)** — a display connection stack in Rust,
+> HDMI 2.1 first: from EDID parsing through mode negotiation to FRL link training.
+>
+> **display-types** ·
+> [piaf](https://github.com/DracoWhitefire/piaf) ·
+> [concordance](https://github.com/DracoWhitefire/concordance) ·
+> [cartouche](https://github.com/DracoWhitefire/cartouche) ·
+> [culvert](https://github.com/DracoWhitefire/culvert) ·
+> [plumbob](https://github.com/DracoWhitefire/plumbob) ·
+> [hdmi-hal](https://github.com/DracoWhitefire/hdmi-hal) ·
+> [hdmi-hal-i2c-dev](https://github.com/DracoWhitefire/hdmi-hal-i2c-dev)
 
 Shared display capability types for display connection negotiation.
 
@@ -60,11 +72,19 @@ Releases are built on GitHub Actions and attested with
 [GitHub CLI](https://cli.github.com/) and run:
 
 ```sh
-gh attestation verify display-types-X.Y.Z.crate --repo DracoWhitefire/display-types
+gh attestation verify display-types-X.Y.Z.crate --repo ashlar-display/display-types
+```
+
+Releases from before the repository moved to the `ashlar-display` organization (0.4.0 to
+0.4.2) were attested under its previous owner, and verify against it:
+
+```sh
+gh attestation verify display-types-X.Y.Z.crate --owner DracoWhitefire \
+  --signer-repo DracoWhitefire/display-types
 ```
 
 The attested `.crate` is attached to each
-[GitHub release](https://github.com/DracoWhitefire/display-types/releases).
+[GitHub release](https://github.com/ashlar-display/display-types/releases).
 
 Releases from 0.4.1 are uploaded through crates.io
 [trusted publishing](https://rust-lang.github.io/rfcs/3691-trusted-publishing-cratesio.html): the publish
