@@ -51,7 +51,7 @@ pub use capabilities::Cea861Flags;
 pub use capabilities::{Cea861Capabilities, HdmiAudioBlock};
 pub use colorimetry::{ColorimetryBlock, ColorimetryFlags};
 pub use dmt_table::dmt_to_mode;
-pub use hdmi_forum::{FrlLanes, HdmiDscMaxSlices, HdmiForumDsc, HdmiForumFrl, HdmiForumSinkCap};
+pub use hdmi_forum::{HdmiDscMaxSlices, HdmiForumDsc, HdmiForumFrl, HdmiForumSinkCap, HdmiLanes};
 pub use hdmi_vsdb::{HdmiVsdb, HdmiVsdbFlags};
 pub use hdr::{HdrDynamicMetadataDescriptor, HdrEotf, HdrStaticMetadata};
 #[cfg(any(feature = "alloc", feature = "std"))]
