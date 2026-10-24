@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `HdmiForumFrl::lanes()` — the data lanes a link at the rate carries, as the new
+  `HdmiLanes` (`Three`, `Four`): three for TMDS (`NotSupported`, its three data channels)
+  and the 3-lane FRL rates, four for the 4-lane rates. Defined here for every rate, so
+  consumers need no rule of their own, and no wildcard guess for rates they do not know;
+  a future rate gets its lane count where it is added. `HdmiLanes::count()` gives the
+  number; `HdmiLanes` is ordered by lane count.
+
 ### Changed
 
 - **Part of Ashlar** — the README now opens with a block naming the

@@ -89,7 +89,7 @@ pub use capabilities::{
 };
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use capabilities::{DisplayCapabilities, ExtensionData, ParseWarning};
-pub use cea861::HdmiForumFrl;
+pub use cea861::{HdmiForumFrl, HdmiLanes};
 pub use transfer::TransferPointEncoding;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use transfer::{DisplayIdTransferCharacteristic, TransferCurve};

@@ -37,6 +37,49 @@ impl HdmiForumFrl {
             _ => Self::NotSupported, // reserved values
         }
     }
+
+    /// The data lanes a link at this rate carries: three for TMDS
+    /// ([`NotSupported`](Self::NotSupported): the three TMDS data channels) and the
+    /// 3-lane FRL rates, four for the 4-lane FRL rates.
+    ///
+    /// Defined for every rate, so a consumer needs no rule of its own, TMDS included: a
+    /// future rate gets its lane count here, where it is added. Whether the link is FRL at
+    /// all is `self != HdmiForumFrl::NotSupported`.
+    pub const fn lanes(self) -> HdmiLanes {
+        match self {
+            Self::NotSupported | Self::Rate3Gbps3Lanes | Self::Rate6Gbps3Lanes => HdmiLanes::Three,
+            Self::Rate6Gbps4Lanes
+            | Self::Rate8Gbps4Lanes
+            | Self::Rate10Gbps4Lanes
+            | Self::Rate12Gbps4Lanes => HdmiLanes::Four,
+        }
+    }
+}
+
+/// The number of data lanes an HDMI link carries: three for TMDS (its three data
+/// channels) and 3-lane FRL, four for 4-lane FRL, where the TMDS clock channel becomes
+/// lane 3. See [`HdmiForumFrl::lanes`].
+///
+/// Exhaustive on purpose: every HDMI version that defines FRL uses three or four lanes, so
+/// a match on this type needs no wildcard; another count would be a deliberate breaking
+/// change. Ordered by lane count (`Three < Four`), like [`HdmiForumFrl`] by bandwidth.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum HdmiLanes {
+    /// Lanes 0–2 (TMDS data channels 0–2).
+    Three,
+    /// Lanes 0–3.
+    Four,
+}
+
+impl HdmiLanes {
+    /// The number of lanes, 3 or 4.
+    pub const fn count(self) -> usize {
+        match self {
+            Self::Three => 3,
+            Self::Four => 4,
+        }
+    }
 }
 
 impl PartialOrd for HdmiForumFrl {
@@ -286,5 +329,47 @@ impl HdmiForumSinkCap {
             vrr_max_hz,
             dsc,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lanes_of_every_rate() {
+        let expected = [
+            (HdmiForumFrl::NotSupported, HdmiLanes::Three),
+            (HdmiForumFrl::Rate3Gbps3Lanes, HdmiLanes::Three),
+            (HdmiForumFrl::Rate6Gbps3Lanes, HdmiLanes::Three),
+            (HdmiForumFrl::Rate6Gbps4Lanes, HdmiLanes::Four),
+            (HdmiForumFrl::Rate8Gbps4Lanes, HdmiLanes::Four),
+            (HdmiForumFrl::Rate10Gbps4Lanes, HdmiLanes::Four),
+            (HdmiForumFrl::Rate12Gbps4Lanes, HdmiLanes::Four),
+        ];
+        for (rate, lanes) in expected {
+            assert_eq!(rate.lanes(), lanes, "{rate:?}");
+        }
+    }
+
+    #[test]
+    fn lanes_follow_the_raw_rate() {
+        // Every raw `Max_FRL_Rate` nibble: four lanes from 3 to 6, three otherwise — the
+        // 3-lane rates, 0 (TMDS) and the reserved values (decoded as `NotSupported`).
+        for raw in 0..=15u8 {
+            let lanes = HdmiForumFrl::from_raw(raw).lanes();
+            let expected = match raw {
+                3..=6 => HdmiLanes::Four,
+                _ => HdmiLanes::Three,
+            };
+            assert_eq!(lanes, expected, "raw {raw}");
+        }
+    }
+
+    #[test]
+    fn lane_count_and_order() {
+        assert_eq!(HdmiLanes::Three.count(), 3);
+        assert_eq!(HdmiLanes::Four.count(), 4);
+        assert!(HdmiLanes::Three < HdmiLanes::Four);
     }
 }
