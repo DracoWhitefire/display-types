@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`VideoMode::h_blank`**: the horizontal blanking in pixels (front porch, sync and back
+  porch, not including borders), with `VideoMode::with_h_blank`. `None` where the source
+  does not give it. Link capacity checks that work per line, such as HDMI FRL's, need it;
+  the pixel clock alone does not give it.
+- `vic_to_mode` and `dmt_to_mode` fill `h_blank` for every entry. The VIC values are
+  CTA-861-I's (via libdisplay-info's generated table), checked against the Linux kernel's
+  CTA mode table for every VIC; the DMT values are the kernel's, checked against
+  libdisplay-info's DMT 1.13 table.
+
+### Fixed
+
+- `vic_to_mode`'s documentation gave its range as VICs 1–64; it covers 1–127 and 193–219.
+
 ## [0.4.3] - 2026-10-24
 
 ### Added
