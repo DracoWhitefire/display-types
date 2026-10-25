@@ -8,7 +8,10 @@ use crate::{ModeSource, RefreshRate, StereoMode, SyncDefinition, VideoMode};
 /// `htotal - hdisplay`, cross-checked against libdisplay-info's `dmt-table.c` (generated
 /// from the DMT 1.13 PDF); for 0x04 and 0x05 (640×480 @ 60/72 Hz) DMT has an 8-pixel border
 /// on each side that this table folds into the front porch, so their blanking is 16 more
-/// than DMT's, and 0x57/0x58 (CVT-RB v2) are not in libdisplay-info's table.
+/// than DMT's, and 0x57/0x58 (CVT-RB v2) are not in libdisplay-info's table. Porches and
+/// sync polarities were checked against libdisplay-info, the kernel and edid-decode's DMT
+/// table (`utils/edid-decode/parse-base-block.cpp`, v4l-utils); 0x0F's polarity also
+/// against DMT 1.10.
 ///
 /// When two DMT IDs share the same resolution and refresh rate (one Reduced
 /// Blanking variant, one standard), both map to distinct `VideoMode` values with
@@ -63,7 +66,7 @@ pub fn dmt_to_mode(id: u16) -> Option<VideoMode> {
         // 848×480
         0x0E => e!(848, 480, 60, false, 16, 112, 240, 6, 8, true, true, 33750),
         // 1024×768i (interlaced)
-        0x0F => e!(1024, 768, 43, true, 8, 176, 240, 0, 4, false, false, 44900),
+        0x0F => e!(1024, 768, 43, true, 8, 176, 240, 0, 4, true, true, 44900),
         // 1024×768
         0x10 => e!(
             1024, 768, 60, false, 24, 136, 320, 3, 6, false, false, 65000
@@ -256,13 +259,11 @@ pub fn dmt_to_mode(id: u16) -> Option<VideoMode> {
         // Additional VESA DMT 1.13 entries (codes 0x51–0x58)
         0x51 => e!(1366, 768, 60, false, 70, 143, 426, 3, 3, true, true, 85500),
         0x52 => e!(1920, 1080, 60, false, 88, 44, 280, 4, 5, true, true, 148500),
-        0x53 => e!(1600, 900, 60, false, 48, 32, 200, 3, 5, true, false, 108000), // RB
-        0x54 => e!(
-            2048, 1152, 60, false, 48, 32, 202, 3, 4, true, false, 162000
-        ), // RB
+        0x53 => e!(1600, 900, 60, false, 24, 80, 200, 1, 3, true, true, 108000), // RB
+        0x54 => e!(2048, 1152, 60, false, 26, 80, 202, 1, 3, true, true, 162000), // RB
         0x55 => e!(1280, 720, 60, false, 110, 40, 370, 5, 5, true, true, 74250),
         0x56 => e!(1366, 768, 60, false, 14, 56, 134, 1, 3, true, true, 72000),
-        0x57 => e!(4096, 2160, 60, false, 8, 32, 80, 48, 8, true, true, 556744),
+        0x57 => e!(4096, 2160, 60, false, 8, 32, 80, 48, 8, true, false, 556744),
         // 0x58 is the only fractional-rate DMT entry (59.94 Hz); the `e!` macro casts
         // its rate token via `as u32`, which can't accept a non-integer expression,
         // so this entry is expanded inline.
@@ -278,7 +279,7 @@ pub fn dmt_to_mode(id: u16) -> Option<VideoMode> {
                 StereoMode::None,
                 Some(SyncDefinition::DigitalSeparate {
                     h_sync_positive: true,
-                    v_sync_positive: true,
+                    v_sync_positive: false,
                 }),
             )
             .with_h_blank(80),
@@ -340,5 +341,50 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The timing of `mode`: (h_front_porch, h_sync_width, v_front_porch, v_sync_width,
+    /// h_sync_positive, v_sync_positive).
+    fn timing(mode: &VideoMode) -> (u16, u16, u16, u16, bool, bool) {
+        let Some(SyncDefinition::DigitalSeparate {
+            h_sync_positive,
+            v_sync_positive,
+        }) = mode.sync
+        else {
+            panic!("expected digital separate sync");
+        };
+        (
+            mode.h_front_porch,
+            mode.h_sync_width,
+            mode.v_front_porch,
+            mode.v_sync_width,
+            h_sync_positive,
+            v_sync_positive,
+        )
+    }
+
+    #[test]
+    fn dmt_rows_corrected_against_dmt() {
+        // 1600×900 and 2048×1152 @ 60 Hz held CVT-RB porches; DMT 1.13 has its own.
+        let m = dmt_to_mode(0x53).unwrap();
+        assert_eq!(timing(&m), (24, 80, 1, 3, true, true));
+        assert_eq!(m.h_blank, Some(200));
+        let m = dmt_to_mode(0x54).unwrap();
+        assert_eq!(timing(&m), (26, 80, 1, 3, true, true));
+        assert_eq!(m.h_blank, Some(202));
+        // 1024×768i @ 43 Hz: positive sync (DMT 1.10).
+        assert_eq!(
+            timing(&dmt_to_mode(0x0F).unwrap()),
+            (8, 176, 0, 4, true, true)
+        );
+        // 4096×2160 @ 60 and 59.94 Hz (CVT-RB v2): negative vertical sync.
+        assert_eq!(
+            timing(&dmt_to_mode(0x57).unwrap()),
+            (8, 32, 48, 8, true, false)
+        );
+        assert_eq!(
+            timing(&dmt_to_mode(0x58).unwrap()),
+            (8, 32, 48, 8, true, false)
+        );
     }
 }

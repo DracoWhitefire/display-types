@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `vic_to_mode`'s documentation gave its range as VICs 1–64; it covers 1–127 and 193–219.
+- **`dmt_to_mode` returned wrong timings for five DMT IDs.** 0x53 (1600×900 @ 60 Hz) and
+  0x54 (2048×1152 @ 60 Hz) carried CVT reduced-blanking porches instead of DMT's: they
+  now have front porch 24 and 26, sync 80, vertical front porch 1, vertical sync 3, and
+  positive vertical sync. 0x0F (1024×768i @ 43 Hz) now has positive horizontal and
+  vertical sync, and 0x57 and 0x58 (4096×2160 @ 60 and 59.94 Hz, CVT-RB v2) negative
+  vertical sync. Totals and pixel clocks were right and are unchanged. Checked against
+  VESA DMT (1.10 for 0x0F), libdisplay-info's table generated from DMT 1.13, the Linux
+  kernel's and edid-decode's DMT tables.
 
 ## [0.4.3] - 2026-10-24
 
