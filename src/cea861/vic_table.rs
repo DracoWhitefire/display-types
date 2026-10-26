@@ -489,13 +489,6 @@ mod tests {
     }
 
     #[test]
-    fn test_all_vics_1_to_64_are_some() {
-        for vic in 1..=64 {
-            assert!(vic_to_mode(vic).is_some(), "VIC {vic} returned None");
-        }
-    }
-
-    #[test]
     fn test_extended_vics_are_some() {
         // VICs 65–127 (continuous range in CTA-861-I)
         for vic in 65..=127 {

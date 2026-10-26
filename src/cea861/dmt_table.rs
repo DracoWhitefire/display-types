@@ -6,12 +6,15 @@ use crate::{ModeSource, RefreshRate, StereoMode, SyncDefinition, VideoMode};
 /// Source: VESA DMT v1.13, Table 2-1 (cross-referenced against Linux kernel
 /// `drivers/gpu/drm/drm_edid.c`). The horizontal blanking is the kernel's
 /// `htotal - hdisplay`, cross-checked against libdisplay-info's `dmt-table.c` (generated
-/// from the DMT 1.13 PDF); for 0x04 and 0x05 (640×480 @ 60/72 Hz) DMT has an 8-pixel border
-/// on each side that this table folds into the front porch, so their blanking is 16 more
-/// than DMT's, and 0x57/0x58 (CVT-RB v2) are not in libdisplay-info's table. Porches and
-/// sync polarities were checked against libdisplay-info, the kernel and edid-decode's DMT
-/// table (`utils/edid-decode/parse-base-block.cpp`, v4l-utils); 0x0F's polarity also
-/// against DMT 1.10.
+/// from the DMT 1.13 PDF). For 0x04 and 0x05 (640×480 @ 60/72 Hz) DMT has an 8-pixel and
+/// 8-line border on each side; this table, like the kernel's, folds one border into each
+/// porch (0x04: front porch 8 + 8, back porch 40 + 8; vertically likewise), so their
+/// blanking is 16 more than DMT's. 0x57/0x58 (CVT-RB v2) are not in libdisplay-info's
+/// table. Porches were checked against libdisplay-info, the kernel and edid-decode's DMT
+/// table (`utils/edid-decode/parse-base-block.cpp`, v4l-utils); sync polarities against
+/// the kernel and edid-decode (libdisplay-info has none), and 0x0F's also against DMT 1.10.
+/// For 0x52 (1920×1080 @ 60 Hz) the kernel has negative sync; edid-decode and CTA-861's
+/// 1080p60 have positive, which this table keeps.
 ///
 /// When two DMT IDs share the same resolution and refresh rate (one Reduced
 /// Blanking variant, one standard), both map to distinct `VideoMode` values with
@@ -322,7 +325,7 @@ mod tests {
     #[test]
     fn dmt_h_blank() {
         assert_eq!(dmt_to_mode(0x52).unwrap().h_blank, Some(280)); // 1920×1080 @ 60
-        // 640×480 @ 60: DMT's 8-pixel borders are folded into the front porch here.
+        // 640×480 @ 60: DMT's 8-pixel borders are folded into the porches here.
         assert_eq!(dmt_to_mode(0x04).unwrap().h_blank, Some(160));
         // 4096×2160 @ 59.94 (CVT-RB v2, expanded inline).
         assert_eq!(dmt_to_mode(0x58).unwrap().h_blank, Some(80));

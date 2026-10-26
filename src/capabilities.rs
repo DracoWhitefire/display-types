@@ -393,8 +393,9 @@ impl VideoMode {
     /// All blanking-interval fields (`h_front_porch`, `h_sync_width`, `v_front_porch`,
     /// `v_sync_width`, `h_border`, `v_border`) default to `0`, `stereo` defaults to
     /// [`StereoMode::None`], and `sync` and `h_blank` default to `None`. Use
-    /// [`with_detailed_timing`][Self::with_detailed_timing] to set those fields when
-    /// decoding from a Detailed Timing Descriptor.
+    /// [`with_detailed_timing`][Self::with_detailed_timing] to set the porches, sync
+    /// widths, borders, stereo and sync when decoding from a Detailed Timing Descriptor,
+    /// and [`with_h_blank`][Self::with_h_blank] for the horizontal blanking.
     pub fn new(
         width: u16,
         height: u16,
@@ -489,6 +490,10 @@ impl VideoMode {
 
     /// Adds blanking-interval and signal fields decoded from a Detailed Timing Descriptor
     /// or equivalent source, returning the updated mode.
+    ///
+    /// It does not set [`h_blank`][Self::h_blank]: the descriptor's blanking may include the
+    /// borders (EDID 1.3) or not (EDID 1.4), so the decoder sets it with
+    /// [`with_h_blank`][Self::with_h_blank] once it has decided.
     ///
     /// The 9-parameter count mirrors the DTD fields directly (EDID §3.10.3 / DisplayID §4.4).
     #[allow(clippy::too_many_arguments)]
