@@ -88,7 +88,7 @@ pub enum AudioFormatInfo {
 pub struct ShortAudioDescriptor {
     /// Audio coding format.
     pub format: AudioFormat,
-    /// Maximum number of audio channels (1–8).
+    /// Maximum number of audio channels: 1–8, or up to 32 in an HDMI 3D Audio Descriptor.
     pub max_channels: u8,
     /// Supported sample rates.
     pub sample_rates: AudioSampleRates,

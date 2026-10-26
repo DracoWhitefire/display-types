@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **`HdmiAudioBlock` describes the HDMI Audio Data Block as it is laid out.** It held a
+  multi-stream flag and Short Audio Descriptors; the block has neither in that form. It
+  now has `max_streams` (1 without Multi-Stream Audio, 2–4 with it), `ms_non_mixed`,
+  `audio_3d_descriptors` (HDMI 3D Audio Descriptors: L-PCM or One Bit Audio, up to 32
+  channels, as `ShortAudioDescriptor`s) and `speaker_allocation_3d`
+  (`Audio3dSpeakerAllocation`: an `Audio3dChannels` layout and the speakers), with
+  `multi_stream()`; `HdmiAudioBlock::new` takes the four fields. Layout as decoded by
+  edid-decode and libdisplay-info. `multi_stream_audio` and `audio_descriptors` are
+  removed.
+
 ### Added
 
 - **`VideoMode::h_blank`**: the horizontal blanking in pixels (front porch, sync and back
