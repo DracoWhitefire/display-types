@@ -84,7 +84,7 @@ pub use displayid::{
 /// Consumer-facing capability types.
 pub mod capabilities;
 pub use capabilities::{
-    CvtAlgorithm, EdidVersion, ModeSource, RefreshRate, StereoMode, SyncDefinition,
+    CvtAlgorithm, DtdBorderReading, EdidVersion, ModeSource, RefreshRate, StereoMode, SyncDefinition,
     TypeIxStereoMode, VideoMode,
 };
 #[cfg(any(feature = "alloc", feature = "std"))]

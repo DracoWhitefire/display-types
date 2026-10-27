@@ -41,6 +41,27 @@ pub enum StereoMode {
     SideBySideInterleaved,
 }
 
+/// How a Detailed Timing Descriptor's blanking was read with respect to its borders.
+///
+/// EDID 1.3 §3.12 counts the borders in the horizontal and vertical blanking; EDID 1.4
+/// §3.12 does not. The two readings give the same mode a different line total, refresh
+/// rate and [`h_blank`][VideoMode::h_blank] at the same pixel clock. They differ only for
+/// a descriptor with non-zero borders.
+///
+/// Recorded on [`VideoMode::dtd_border_reading`] when the decoder's caller has settled
+/// which reading applies. Not `#[non_exhaustive]`: the specifications define exactly
+/// these two, and a consumer should match them exhaustively.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DtdBorderReading {
+    /// The blanking includes the borders (EDID 1.3): the line total is active + blanking,
+    /// and `h_blank` is the blanking less both borders.
+    Edid13,
+    /// The blanking excludes the borders (EDID 1.4): the line total is active + both
+    /// borders + blanking, and `h_blank` is the blanking.
+    Edid14,
+}
+
 /// CVT formula selector for DisplayID 2.x Type IX (`0x24`) and Type V (`0x11`)
 /// Formula-Based Timings.
 ///
@@ -360,6 +381,14 @@ pub struct VideoMode {
     pub h_border: u8,
     /// Vertical border height in lines on each side of the active area (0 when not from a DTD).
     pub v_border: u8,
+    /// The reading of a Detailed Timing Descriptor's blanking with respect to its borders,
+    /// when it was settled.
+    ///
+    /// `None` when it was not: the mode does not come from a DTD, or the decoder took its
+    /// default reading as an assumption (piaf reads EDID 1.3 and warns when the descriptor
+    /// has borders). `Some` when the decoder's caller chose the reading; the timing fields
+    /// follow it, and a consumer need not consider the other one.
+    pub dtd_border_reading: Option<DtdBorderReading>,
     /// Stereo viewing support (default [`StereoMode::None`] for non-DTD modes).
     pub stereo: StereoMode,
     /// Sync signal definition (`None` for non-DTD modes).
@@ -444,6 +473,21 @@ impl VideoMode {
     /// ```
     pub fn with_h_blank(mut self, h_blank: u16) -> Self {
         self.h_blank = Some(h_blank);
+        self
+    }
+
+    /// Records the settled reading of the Detailed Timing Descriptor's blanking with
+    /// respect to its borders, returning the updated mode.
+    ///
+    /// ```
+    /// use display_types::{DtdBorderReading, VideoMode};
+    ///
+    /// let mode = VideoMode::new(720, 480, 60u32, false)
+    ///     .with_dtd_border_reading(DtdBorderReading::Edid14);
+    /// assert_eq!(mode.dtd_border_reading, Some(DtdBorderReading::Edid14));
+    /// ```
+    pub fn with_dtd_border_reading(mut self, reading: DtdBorderReading) -> Self {
+        self.dtd_border_reading = Some(reading);
         self
     }
 
