@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `multi_stream()`; `HdmiAudioBlock::new` takes the four fields. Layout as decoded by
   edid-decode and libdisplay-info. `multi_stream_audio` and `audio_descriptors` are
   removed.
+- **`ModeSource::DtdIndex(u8)` is replaced by `ModeSource::Dtd { block, index }`.** The
+  index alone was the position within the descriptor's EDID block, so the base block's
+  first DTD and a CTA-861 extension's first DTD were both `DtdIndex(0)`. `block` is the
+  EDID block number (0 for the base block), so `Dtd { block: 0, index: 0 }` is the
+  preferred timing. Replace a match on `DtdIndex(0)` with `Dtd { block: 0, index: 0 }`.
 
 ### Added
 
