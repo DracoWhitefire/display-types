@@ -41,6 +41,27 @@ pub enum StereoMode {
     SideBySideInterleaved,
 }
 
+/// How a Detailed Timing Descriptor's blanking was read with respect to its borders.
+///
+/// EDID 1.3 §3.12 counts the borders in the horizontal and vertical blanking; EDID 1.4
+/// §3.12 does not. The two readings give the same mode a different line total, refresh
+/// rate and [`h_blank`][VideoMode::h_blank] at the same pixel clock. They differ only for
+/// a descriptor with non-zero borders.
+///
+/// Recorded on [`VideoMode::dtd_border_reading`] when the decoder's caller has settled
+/// which reading applies. Not `#[non_exhaustive]`: the specifications define exactly
+/// these two, and a consumer should match them exhaustively.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DtdBorderReading {
+    /// The blanking includes the borders (EDID 1.3): the line total is active + blanking,
+    /// and `h_blank` is the blanking less both borders.
+    Edid13,
+    /// The blanking excludes the borders (EDID 1.4): the line total is active + both
+    /// borders + blanking, and `h_blank` is the blanking.
+    Edid14,
+}
+
 /// CVT formula selector for DisplayID 2.x Type IX (`0x24`) and Type V (`0x11`)
 /// Formula-Based Timings.
 ///
@@ -147,8 +168,15 @@ pub enum ModeSource {
     Vic(u8),
     /// A VESA Display Monitor Timings identifier (0x01–0x58).
     DmtId(u16),
-    /// Zero-based index of a Detailed Timing Descriptor within its containing EDID block.
-    DtdIndex(u8),
+    /// A Detailed Timing Descriptor, by where it sits in the EDID.
+    Dtd {
+        /// The EDID block holding the descriptor: 0 for the base block, `n` for the `n`th
+        /// block after it, as edid-decode numbers them.
+        block: u8,
+        /// Zero-based index of the descriptor among the DTDs of that block, so base-block
+        /// index 0 is the preferred timing.
+        index: u8,
+    },
 }
 
 /// A display refresh rate expressed as an exact rational number (numerator/denominator in Hz).
@@ -342,6 +370,16 @@ pub struct VideoMode {
     pub h_front_porch: u16,
     /// Horizontal sync pulse width in pixels (0 when not decoded from a DTD).
     pub h_sync_width: u16,
+    /// Horizontal blanking in pixels: front porch, sync and back porch, not including
+    /// borders (`h_total = width + 2 × h_border + h_blank`).
+    ///
+    /// `None` when the source does not give it (standard timings, SVDs resolved without a
+    /// table, CVT-coded timings before the CVT formula is applied). Set by
+    /// [`vic_to_mode`][crate::cea861::vic_to_mode],
+    /// [`dmt_to_mode`][crate::cea861::dmt_to_mode], and by parsers via
+    /// [`with_h_blank`][Self::with_h_blank]. Link capacity checks that work per line (HDMI
+    /// FRL) need it; `pixel_clock_khz` alone does not give it.
+    pub h_blank: Option<u16>,
     /// Vertical front porch in lines (0 when not decoded from a DTD).
     pub v_front_porch: u16,
     /// Vertical sync pulse width in lines (0 when not decoded from a DTD).
@@ -350,6 +388,14 @@ pub struct VideoMode {
     pub h_border: u8,
     /// Vertical border height in lines on each side of the active area (0 when not from a DTD).
     pub v_border: u8,
+    /// The reading of a Detailed Timing Descriptor's blanking with respect to its borders,
+    /// when it was settled.
+    ///
+    /// `None` when it was not: the mode does not come from a DTD, or the decoder took its
+    /// default reading as an assumption (piaf reads EDID 1.3 and warns when the descriptor
+    /// has borders). `Some` when the decoder's caller chose the reading; the timing fields
+    /// follow it, and a consumer need not consider the other one.
+    pub dtd_border_reading: Option<DtdBorderReading>,
     /// Stereo viewing support (default [`StereoMode::None`] for non-DTD modes).
     pub stereo: StereoMode,
     /// Sync signal definition (`None` for non-DTD modes).
@@ -382,9 +428,10 @@ impl VideoMode {
     ///
     /// All blanking-interval fields (`h_front_porch`, `h_sync_width`, `v_front_porch`,
     /// `v_sync_width`, `h_border`, `v_border`) default to `0`, `stereo` defaults to
-    /// [`StereoMode::None`], and `sync` defaults to `None`. Use
-    /// [`with_detailed_timing`][Self::with_detailed_timing] to set those fields when
-    /// decoding from a Detailed Timing Descriptor.
+    /// [`StereoMode::None`], and `sync` and `h_blank` default to `None`. Use
+    /// [`with_detailed_timing`][Self::with_detailed_timing] to set the porches, sync
+    /// widths, borders, stereo and sync when decoding from a Detailed Timing Descriptor,
+    /// and [`with_h_blank`][Self::with_h_blank] for the horizontal blanking.
     pub fn new(
         width: u16,
         height: u16,
@@ -418,6 +465,36 @@ impl VideoMode {
     /// ```
     pub fn with_pixel_clock(mut self, pixel_clock_khz: u32) -> Self {
         self.pixel_clock_khz = Some(pixel_clock_khz);
+        self
+    }
+
+    /// Sets the horizontal blanking in pixels (front porch, sync and back porch, not
+    /// including borders), returning the updated mode.
+    ///
+    /// ```
+    /// use display_types::VideoMode;
+    ///
+    /// // 3840×2160 @ 60 Hz (CTA-861 VIC 97): h_total 4400.
+    /// let mode = VideoMode::new(3840, 2160, 60u32, false).with_h_blank(560);
+    /// assert_eq!(mode.h_blank, Some(560));
+    /// ```
+    pub fn with_h_blank(mut self, h_blank: u16) -> Self {
+        self.h_blank = Some(h_blank);
+        self
+    }
+
+    /// Records the settled reading of the Detailed Timing Descriptor's blanking with
+    /// respect to its borders, returning the updated mode.
+    ///
+    /// ```
+    /// use display_types::{DtdBorderReading, VideoMode};
+    ///
+    /// let mode = VideoMode::new(720, 480, 60u32, false)
+    ///     .with_dtd_border_reading(DtdBorderReading::Edid14);
+    /// assert_eq!(mode.dtd_border_reading, Some(DtdBorderReading::Edid14));
+    /// ```
+    pub fn with_dtd_border_reading(mut self, reading: DtdBorderReading) -> Self {
+        self.dtd_border_reading = Some(reading);
         self
     }
 
@@ -455,7 +532,7 @@ impl VideoMode {
     ///
     /// Called automatically by [`vic_to_mode`][crate::cea861::vic_to_mode] and
     /// [`dmt_to_mode`][crate::cea861::dmt_to_mode]. Parsers decoding Detailed Timing
-    /// Descriptors should call `.with_source(ModeSource::DtdIndex(n))` so that the
+    /// Descriptors should call `.with_source(ModeSource::Dtd { block, index })` so that the
     /// descriptor's position survives into negotiated output.
     pub fn with_source(mut self, source: ModeSource) -> Self {
         self.source = Some(source);
@@ -464,6 +541,10 @@ impl VideoMode {
 
     /// Adds blanking-interval and signal fields decoded from a Detailed Timing Descriptor
     /// or equivalent source, returning the updated mode.
+    ///
+    /// It does not set [`h_blank`][Self::h_blank]: the descriptor's blanking may include the
+    /// borders (EDID 1.3) or not (EDID 1.4), so the decoder sets it with
+    /// [`with_h_blank`][Self::with_h_blank] once it has decided.
     ///
     /// The 9-parameter count mirrors the DTD fields directly (EDID §3.10.3 / DisplayID §4.4).
     #[allow(clippy::too_many_arguments)]
@@ -660,10 +741,14 @@ pub struct DisplayCapabilities {
     pub max_h_rate_khz: Option<u16>,
     /// Maximum pixel clock in MHz.
     pub max_pixel_clock_mhz: Option<u16>,
-    /// Physical image area dimensions in millimetres `(width_mm, height_mm)`.
+    /// Image size of the preferred timing, in millimetres `(width_mm, height_mm)`: the size
+    /// in the base block's first Detailed Timing Descriptor, which EDID defines as the
+    /// preferred timing.
     ///
-    /// More precise than [`screen_size`][Self::screen_size] (which is in cm).
-    /// `None` when all DTD image-size fields are zero.
+    /// More precise than [`screen_size`][Self::screen_size] (which is in cm). `None` when
+    /// that descriptor gives no size (either axis 0) or the first slot holds no timing.
+    /// Other descriptors' sizes do not fill it, and neither does DisplayID's image size
+    /// (in `DisplayIdCapabilities::image_size`).
     pub preferred_image_size_mm: Option<(u16, u16)>,
     /// Video timing formula reported in the display range limits descriptor.
     pub timing_formula: Option<crate::timing::TimingFormula>,

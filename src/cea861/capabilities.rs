@@ -34,27 +34,84 @@ bitflags::bitflags! {
 
 /// Decoded HDMI Audio Data Block (extended tag `0x12`).
 ///
-/// Advertises HDMI-specific audio capabilities, including Multi-Stream Audio (MSA)
-/// support and a set of Short Audio Descriptors for the HDMI audio path.
+/// Advertises HDMI Multi-Stream Audio and HDMI 3D Audio. Layout as decoded by edid-decode
+/// (`cta_hdmi_audio_block`) and libdisplay-info (`parse_hdmi_audio_block`): byte 1 holds
+/// the maximum stream count less one (bits 1:0) and MS NonMixed support (bit 2); byte 2
+/// the number of 3D audio descriptors (bits 2:0); then that many 4-byte 3D audio
+/// descriptors and, when there is at least one, a 4-byte 3D speaker allocation. The block
+/// carries no ordinary Short Audio Descriptors. HDMI 2.2 deprecates 3D audio.
 #[non_exhaustive]
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HdmiAudioBlock {
-    /// If `true`, the sink supports HDMI Multi-Stream Audio (MSA).
-    pub multi_stream_audio: bool,
-    /// Short Audio Descriptors for the HDMI audio path (eARC-capable formats, etc.).
-    pub audio_descriptors: Vec<ShortAudioDescriptor>,
+    /// The most audio streams the sink accepts at once: 1 without Multi-Stream Audio, 2–4
+    /// with it.
+    pub max_streams: u8,
+    /// The sink accepts multi-stream audio whose streams are not mixed (MS NonMixed). Only
+    /// meaningful when `max_streams > 1`.
+    pub ms_non_mixed: bool,
+    /// HDMI 3D Audio Descriptors: L-PCM or One Bit Audio, with up to 32 channels. They hold
+    /// the same fields as a Short Audio Descriptor, packed in 4 bytes.
+    pub audio_3d_descriptors: Vec<ShortAudioDescriptor>,
+    /// The speaker allocation for 3D audio, present when there are 3D audio descriptors.
+    pub speaker_allocation_3d: Option<Audio3dSpeakerAllocation>,
 }
 
 #[cfg(any(feature = "alloc", feature = "std"))]
 impl HdmiAudioBlock {
     /// Constructs an `HdmiAudioBlock`.
-    pub fn new(multi_stream_audio: bool, audio_descriptors: Vec<ShortAudioDescriptor>) -> Self {
+    pub fn new(
+        max_streams: u8,
+        ms_non_mixed: bool,
+        audio_3d_descriptors: Vec<ShortAudioDescriptor>,
+        speaker_allocation_3d: Option<Audio3dSpeakerAllocation>,
+    ) -> Self {
         Self {
-            multi_stream_audio,
-            audio_descriptors,
+            max_streams,
+            ms_non_mixed,
+            audio_3d_descriptors,
+            speaker_allocation_3d,
         }
+    }
+
+    /// The sink accepts more than one audio stream at once (HDMI Multi-Stream Audio).
+    pub fn multi_stream(&self) -> bool {
+        self.max_streams > 1
+    }
+}
+
+/// The channel layout a 3D speaker allocation describes (byte 4, bits 7:4).
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Audio3dChannels {
+    /// 10.2 channels.
+    Ch10_2,
+    /// 22.2 channels.
+    Ch22_2,
+    /// 30.2 channels.
+    Ch30_2,
+    /// A value no known layout uses; the raw 4-bit value.
+    Unknown(u8),
+}
+
+/// The 3D speaker allocation descriptor that ends an HDMI Audio Data Block's 3D audio
+/// descriptors: the speaker bits (as in the Speaker Allocation Data Block) and the layout.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Audio3dSpeakerAllocation {
+    /// The channel layout.
+    pub channels: Audio3dChannels,
+    /// The speakers present.
+    pub speakers: super::SpeakerAllocation,
+}
+
+impl Audio3dSpeakerAllocation {
+    /// Constructs an `Audio3dSpeakerAllocation`.
+    pub fn new(channels: Audio3dChannels, speakers: super::SpeakerAllocation) -> Self {
+        Self { channels, speakers }
     }
 }
 
@@ -171,5 +228,34 @@ impl Cea861Capabilities {
             hf_eeodb_extension_count: None,
             hf_scdb: None,
         }
+    }
+}
+
+#[cfg(all(test, any(feature = "alloc", feature = "std")))]
+mod hdmi_audio_tests {
+    use super::*;
+    use crate::cea861::{
+        SpeakerAllocation, SpeakerAllocationFlags, SpeakerAllocationFlags2, SpeakerAllocationFlags3,
+    };
+
+    #[test]
+    fn multi_stream_follows_the_stream_count() {
+        assert!(!HdmiAudioBlock::new(1, false, Vec::new(), None).multi_stream());
+        assert!(HdmiAudioBlock::new(2, true, Vec::new(), None).multi_stream());
+    }
+
+    #[test]
+    fn speaker_allocation_3d_holds_layout_and_speakers() {
+        let speakers = SpeakerAllocation::new(
+            SpeakerAllocationFlags::FL_FR | SpeakerAllocationFlags::FC,
+            SpeakerAllocationFlags2::empty(),
+            SpeakerAllocationFlags3::empty(),
+        );
+        let alloc = Audio3dSpeakerAllocation::new(Audio3dChannels::Ch22_2, speakers);
+        let block = HdmiAudioBlock::new(1, false, Vec::new(), Some(alloc));
+        assert_eq!(
+            block.speaker_allocation_3d.map(|a| a.channels),
+            Some(Audio3dChannels::Ch22_2)
+        );
     }
 }

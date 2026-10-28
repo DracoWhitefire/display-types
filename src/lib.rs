@@ -77,15 +77,16 @@ pub mod displayid;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use displayid::DisplayIdCapabilities;
 pub use displayid::{
-    CustomColorSpaceEotfCombo, DisplayIdStereoInterfaceV2, DisplayInterfaceFeatures,
-    StereoTimingCode, StereoTimingCodeType, StereoTimingScopeV2,
+    CustomColorSpaceEotfCombo, DisplayIdImageSize, DisplayIdStereoInterfaceV2,
+    DisplayInterfaceFeatures, ImageSizeUnit, StereoTimingCode, StereoTimingCodeType,
+    StereoTimingScopeV2,
 };
 
 /// Consumer-facing capability types.
 pub mod capabilities;
 pub use capabilities::{
-    CvtAlgorithm, EdidVersion, ModeSource, RefreshRate, StereoMode, SyncDefinition,
-    TypeIxStereoMode, VideoMode,
+    CvtAlgorithm, DtdBorderReading, EdidVersion, ModeSource, RefreshRate, StereoMode,
+    SyncDefinition, TypeIxStereoMode, VideoMode,
 };
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use capabilities::{DisplayCapabilities, ExtensionData, ParseWarning};

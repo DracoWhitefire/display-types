@@ -43,8 +43,8 @@ is fine.
 
 ## Publishing and downstream dependencies
 
-display-types is consumed by [piaf](https://github.com/DracoWhitefire/piaf) and
-[concordance](https://github.com/DracoWhitefire/concordance) as versioned crate
+display-types is consumed by [piaf](https://github.com/ashlar-display/piaf) and
+[concordance](https://github.com/ashlar-display/concordance) as versioned crate
 dependencies. Changes that add or modify public API must be merged, tagged, and
 published to crates.io before downstream crates can adopt them. The workflow is:
 

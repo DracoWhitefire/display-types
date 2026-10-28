@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-28
+
+### Breaking changes
+
+- **`HdmiAudioBlock` describes the HDMI Audio Data Block as it is laid out.** It held a
+  multi-stream flag and Short Audio Descriptors; the block has neither in that form. It
+  now has `max_streams` (1 without Multi-Stream Audio, 2–4 with it), `ms_non_mixed`,
+  `audio_3d_descriptors` (HDMI 3D Audio Descriptors: L-PCM or One Bit Audio, up to 32
+  channels, as `ShortAudioDescriptor`s) and `speaker_allocation_3d`
+  (`Audio3dSpeakerAllocation`: an `Audio3dChannels` layout and the speakers), with
+  `multi_stream()`; `HdmiAudioBlock::new` takes the four fields. Layout as decoded by
+  edid-decode and libdisplay-info. `multi_stream_audio` and `audio_descriptors` are
+  removed.
+- **`ModeSource::DtdIndex(u8)` is replaced by `ModeSource::Dtd { block, index }`.** The
+  index alone was the position within the descriptor's EDID block, so the base block's
+  first DTD and a CTA-861 extension's first DTD were both `DtdIndex(0)`. `block` is the
+  EDID block number (0 for the base block), so `Dtd { block: 0, index: 0 }` is the
+  preferred timing. Replace a match on `DtdIndex(0)` with `Dtd { block: 0, index: 0 }`.
+- **`DisplayCapabilities::preferred_image_size_mm` is the preferred timing's image size.**
+  It is defined as the size in the base block's first Detailed Timing Descriptor, `None`
+  when that descriptor gives none. It was documented as the first non-zero DTD size, and
+  DisplayID's image size could replace it; DisplayID's now has its own field (below).
+
+### Added
+
+- **`VideoMode::h_blank`**: the horizontal blanking in pixels (front porch, sync and back
+  porch, not including borders), with `VideoMode::with_h_blank`. `None` where the source
+  does not give it. Link capacity checks that work per line, such as HDMI FRL's, need it;
+  the pixel clock alone does not give it.
+- `vic_to_mode` and `dmt_to_mode` fill `h_blank` for every entry. The VIC values are
+  CTA-861-I's (via libdisplay-info's generated table), checked against the Linux kernel's
+  CTA mode table for every VIC; the DMT values are the kernel's, checked against
+  libdisplay-info's DMT 1.13 table.
+- **`VideoMode::dtd_border_reading`**: `Some(DtdBorderReading::Edid13 | Edid14)` when the
+  decoder's caller settled whether a Detailed Timing Descriptor's blanking includes its
+  borders (EDID 1.3) or not (EDID 1.4), with `VideoMode::with_dtd_border_reading`. `None`
+  when it was not settled, so a consumer such as a link capacity check knows when to
+  consider both readings.
+- **`DisplayIdCapabilities::image_size`** (`DisplayIdImageSize`): the image size from a
+  DisplayID Display Parameters block (1.x `0x01`, 2.x `0x21`), in the unit the block
+  declares (`ImageSizeUnit::TenthMillimetre` or `Millimetre`), so no precision is lost;
+  `tenths_mm()` gives either exactly.
+
+### Fixed
+
+- `vic_to_mode`'s documentation gave its range as VICs 1–64; it covers 1–127 and 193–219.
+- **`dmt_to_mode` returned wrong timings for five DMT IDs.** 0x53 (1600×900 @ 60 Hz) and
+  0x54 (2048×1152 @ 60 Hz) carried CVT reduced-blanking porches instead of DMT's: they
+  now have front porch 24 and 26, sync 80, vertical front porch 1, vertical sync 3, and
+  positive vertical sync. 0x0F (1024×768i @ 43 Hz) now has positive horizontal and
+  vertical sync, and 0x57 and 0x58 (4096×2160 @ 60 and 59.94 Hz, CVT-RB v2) negative
+  vertical sync. Totals and pixel clocks were right and are unchanged. Checked against
+  VESA DMT (1.10 for 0x0F), libdisplay-info's table generated from DMT 1.13, the Linux
+  kernel's and edid-decode's DMT tables.
+
 ## [0.4.3] - 2026-10-24
 
 ### Added

@@ -57,9 +57,9 @@ pub struct Chromaticity12 {
 /// Contains factory-calibrated colorimetry (12-bit chromaticity), HDR luminance
 /// levels, color depth, display technology, and gamma. Luminance values are
 /// transmitted on-wire as IEEE 754 half-precision (`f16`) and converted to `f32`
-/// by the decoder before storage. Image size and pixel count are exposed separately
-/// on [`DisplayCapabilities`][crate::DisplayCapabilities] via `preferred_image_size_mm`
-/// and `native_pixels`.
+/// by the decoder before storage. The image size is in
+/// `DisplayIdCapabilities::image_size` (`alloc`/`std`), and the pixel count on
+/// [`DisplayCapabilities`][crate::DisplayCapabilities] as `native_pixels`.
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -556,6 +556,61 @@ pub struct DisplayIdVendorSpecific {
     pub data: Vec<u8>,
 }
 
+/// The image size from a DisplayID Display Parameters block (1.x `0x01`, 2.x `0x21`), in the
+/// unit the block declares.
+///
+/// Block `0x01` is always in tenths of a millimetre; block `0x21` declares tenths or whole
+/// millimetres (bit 7 of its revision byte). [`tenths_mm`][Self::tenths_mm] gives both in
+/// the same unit, exactly.
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DisplayIdImageSize {
+    /// Horizontal image size, in [`unit`][Self::unit]s.
+    pub width: u16,
+    /// Vertical image size, in [`unit`][Self::unit]s.
+    pub height: u16,
+    /// The unit of `width` and `height`.
+    pub unit: ImageSizeUnit,
+}
+
+impl DisplayIdImageSize {
+    /// Constructs an image size of `width` × `height` in `unit`s.
+    pub const fn new(width: u16, height: u16, unit: ImageSizeUnit) -> Self {
+        Self {
+            width,
+            height,
+            unit,
+        }
+    }
+
+    /// Width and height in tenths of a millimetre, whichever unit the block declared.
+    ///
+    /// ```
+    /// use display_types::{DisplayIdImageSize, ImageSizeUnit};
+    ///
+    /// let size = DisplayIdImageSize::new(597, 336, ImageSizeUnit::Millimetre);
+    /// assert_eq!(size.tenths_mm(), (5970, 3360));
+    /// ```
+    pub const fn tenths_mm(&self) -> (u32, u32) {
+        let scale = match self.unit {
+            ImageSizeUnit::TenthMillimetre => 1,
+            ImageSizeUnit::Millimetre => 10,
+        };
+        (self.width as u32 * scale, self.height as u32 * scale)
+    }
+}
+
+/// The unit of a [`DisplayIdImageSize`].
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageSizeUnit {
+    /// Tenths of a millimetre (0.1 mm).
+    TenthMillimetre,
+    /// Whole millimetres.
+    Millimetre,
+}
+
 /// Rich capabilities extracted from a DisplayID 1.x or 2.x extension section.
 ///
 /// Stored in `DisplayCapabilities` via `set_extension_data(0x70, ...)` by the dynamic
@@ -573,6 +628,9 @@ pub struct DisplayIdCapabilities {
     pub manufacturer_oui: Option<[u8; 3]>,
     /// Display parameters from 2.x block 0x21 (chromaticity, luminance, gamma).
     pub display_params_v2: Option<DisplayParamsV2>,
+    /// Image size from the Display Parameters block (1.x `0x01`, 2.x `0x21`). `None` when
+    /// there is no such block or it leaves either axis undefined (0).
+    pub image_size: Option<DisplayIdImageSize>,
     /// Dynamic video timing range from 2.x block 0x25.
     pub dynamic_timing_range: Option<DynamicTimingRange>,
     /// Display interface features from 2.x block 0x26.
@@ -595,6 +653,7 @@ impl DisplayIdCapabilities {
             product_type,
             manufacturer_oui: None,
             display_params_v2: None,
+            image_size: None,
             dynamic_timing_range: None,
             interface_features: None,
             stereo_interface_v2: None,
