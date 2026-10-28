@@ -77,8 +77,9 @@ pub mod displayid;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use displayid::DisplayIdCapabilities;
 pub use displayid::{
-    CustomColorSpaceEotfCombo, DisplayIdStereoInterfaceV2, DisplayInterfaceFeatures,
-    StereoTimingCode, StereoTimingCodeType, StereoTimingScopeV2,
+    CustomColorSpaceEotfCombo, DisplayIdImageSize, DisplayIdStereoInterfaceV2,
+    DisplayInterfaceFeatures, ImageSizeUnit, StereoTimingCode, StereoTimingCodeType,
+    StereoTimingScopeV2,
 };
 
 /// Consumer-facing capability types.
