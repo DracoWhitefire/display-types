@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   first DTD and a CTA-861 extension's first DTD were both `DtdIndex(0)`. `block` is the
   EDID block number (0 for the base block), so `Dtd { block: 0, index: 0 }` is the
   preferred timing. Replace a match on `DtdIndex(0)` with `Dtd { block: 0, index: 0 }`.
+- **`DisplayCapabilities::preferred_image_size_mm` is the preferred timing's image size.**
+  It is defined as the size in the base block's first Detailed Timing Descriptor, `None`
+  when that descriptor gives none. It was documented as the first non-zero DTD size, and
+  DisplayID's image size could replace it; DisplayID's now has its own field (below).
 
 ### Added
 
@@ -39,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   borders (EDID 1.3) or not (EDID 1.4), with `VideoMode::with_dtd_border_reading`. `None`
   when it was not settled, so a consumer such as a link capacity check knows when to
   consider both readings.
+- **`DisplayIdCapabilities::image_size`** (`DisplayIdImageSize`): the image size from a
+  DisplayID Display Parameters block (1.x `0x01`, 2.x `0x21`), in the unit the block
+  declares (`ImageSizeUnit::TenthMillimetre` or `Millimetre`), so no precision is lost;
+  `tenths_mm()` gives either exactly.
 
 ### Fixed
 

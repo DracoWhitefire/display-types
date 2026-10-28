@@ -741,10 +741,14 @@ pub struct DisplayCapabilities {
     pub max_h_rate_khz: Option<u16>,
     /// Maximum pixel clock in MHz.
     pub max_pixel_clock_mhz: Option<u16>,
-    /// Physical image area dimensions in millimetres `(width_mm, height_mm)`.
+    /// Image size of the preferred timing, in millimetres `(width_mm, height_mm)`: the size
+    /// in the base block's first Detailed Timing Descriptor, which EDID defines as the
+    /// preferred timing.
     ///
-    /// More precise than [`screen_size`][Self::screen_size] (which is in cm).
-    /// `None` when all DTD image-size fields are zero.
+    /// More precise than [`screen_size`][Self::screen_size] (which is in cm). `None` when
+    /// that descriptor gives no size (either axis 0) or the first slot holds no timing.
+    /// Other descriptors' sizes do not fill it, and neither does DisplayID's image size
+    /// (in `DisplayIdCapabilities::image_size`).
     pub preferred_image_size_mm: Option<(u16, u16)>,
     /// Video timing formula reported in the display range limits descriptor.
     pub timing_formula: Option<crate::timing::TimingFormula>,
