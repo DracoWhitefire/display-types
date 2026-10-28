@@ -342,6 +342,16 @@ pub struct VideoMode {
     pub h_front_porch: u16,
     /// Horizontal sync pulse width in pixels (0 when not decoded from a DTD).
     pub h_sync_width: u16,
+    /// Horizontal blanking in pixels: front porch, sync and back porch, not including
+    /// borders (`h_total = width + 2 × h_border + h_blank`).
+    ///
+    /// `None` when the source does not give it (standard timings, SVDs resolved without a
+    /// table, CVT-coded timings before the CVT formula is applied). Set by
+    /// [`vic_to_mode`][crate::cea861::vic_to_mode],
+    /// [`dmt_to_mode`][crate::cea861::dmt_to_mode], and by parsers via
+    /// [`with_h_blank`][Self::with_h_blank]. Link capacity checks that work per line (HDMI
+    /// FRL) need it; `pixel_clock_khz` alone does not give it.
+    pub h_blank: Option<u16>,
     /// Vertical front porch in lines (0 when not decoded from a DTD).
     pub v_front_porch: u16,
     /// Vertical sync pulse width in lines (0 when not decoded from a DTD).
@@ -382,9 +392,10 @@ impl VideoMode {
     ///
     /// All blanking-interval fields (`h_front_porch`, `h_sync_width`, `v_front_porch`,
     /// `v_sync_width`, `h_border`, `v_border`) default to `0`, `stereo` defaults to
-    /// [`StereoMode::None`], and `sync` defaults to `None`. Use
-    /// [`with_detailed_timing`][Self::with_detailed_timing] to set those fields when
-    /// decoding from a Detailed Timing Descriptor.
+    /// [`StereoMode::None`], and `sync` and `h_blank` default to `None`. Use
+    /// [`with_detailed_timing`][Self::with_detailed_timing] to set the porches, sync
+    /// widths, borders, stereo and sync when decoding from a Detailed Timing Descriptor,
+    /// and [`with_h_blank`][Self::with_h_blank] for the horizontal blanking.
     pub fn new(
         width: u16,
         height: u16,
@@ -418,6 +429,21 @@ impl VideoMode {
     /// ```
     pub fn with_pixel_clock(mut self, pixel_clock_khz: u32) -> Self {
         self.pixel_clock_khz = Some(pixel_clock_khz);
+        self
+    }
+
+    /// Sets the horizontal blanking in pixels (front porch, sync and back porch, not
+    /// including borders), returning the updated mode.
+    ///
+    /// ```
+    /// use display_types::VideoMode;
+    ///
+    /// // 3840×2160 @ 60 Hz (CTA-861 VIC 97): h_total 4400.
+    /// let mode = VideoMode::new(3840, 2160, 60u32, false).with_h_blank(560);
+    /// assert_eq!(mode.h_blank, Some(560));
+    /// ```
+    pub fn with_h_blank(mut self, h_blank: u16) -> Self {
+        self.h_blank = Some(h_blank);
         self
     }
 
@@ -464,6 +490,10 @@ impl VideoMode {
 
     /// Adds blanking-interval and signal fields decoded from a Detailed Timing Descriptor
     /// or equivalent source, returning the updated mode.
+    ///
+    /// It does not set [`h_blank`][Self::h_blank]: the descriptor's blanking may include the
+    /// borders (EDID 1.3) or not (EDID 1.4), so the decoder sets it with
+    /// [`with_h_blank`][Self::with_h_blank] once it has decided.
     ///
     /// The 9-parameter count mirrors the DTD fields directly (EDID §3.10.3 / DisplayID §4.4).
     #[allow(clippy::too_many_arguments)]

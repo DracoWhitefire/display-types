@@ -48,7 +48,9 @@ pub mod capabilities;
 pub use audio::{AudioFormat, AudioFormatInfo, AudioSampleRates, ShortAudioDescriptor};
 pub use capabilities::Cea861Flags;
 #[cfg(any(feature = "alloc", feature = "std"))]
-pub use capabilities::{Cea861Capabilities, HdmiAudioBlock};
+pub use capabilities::{
+    Audio3dChannels, Audio3dSpeakerAllocation, Cea861Capabilities, HdmiAudioBlock,
+};
 pub use colorimetry::{ColorimetryBlock, ColorimetryFlags};
 pub use dmt_table::dmt_to_mode;
 pub use hdmi_forum::{HdmiDscMaxSlices, HdmiForumDsc, HdmiForumFrl, HdmiForumSinkCap, HdmiLanes};
