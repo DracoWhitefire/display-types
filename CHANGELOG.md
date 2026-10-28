@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CTA-861-I's (via libdisplay-info's generated table), checked against the Linux kernel's
   CTA mode table for every VIC; the DMT values are the kernel's, checked against
   libdisplay-info's DMT 1.13 table.
+- **`VideoMode::dtd_border_reading`**: `Some(DtdBorderReading::Edid13 | Edid14)` when the
+  decoder's caller settled whether a Detailed Timing Descriptor's blanking includes its
+  borders (EDID 1.3) or not (EDID 1.4), with `VideoMode::with_dtd_border_reading`. `None`
+  when it was not settled, so a consumer such as a link capacity check knows when to
+  consider both readings.
 
 ### Fixed
 
