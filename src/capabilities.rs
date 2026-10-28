@@ -168,8 +168,15 @@ pub enum ModeSource {
     Vic(u8),
     /// A VESA Display Monitor Timings identifier (0x01–0x58).
     DmtId(u16),
-    /// Zero-based index of a Detailed Timing Descriptor within its containing EDID block.
-    DtdIndex(u8),
+    /// A Detailed Timing Descriptor, by where it sits in the EDID.
+    Dtd {
+        /// The EDID block holding the descriptor: 0 for the base block, `n` for the `n`th
+        /// block after it, as edid-decode numbers them.
+        block: u8,
+        /// Zero-based index of the descriptor among the DTDs of that block, so base-block
+        /// index 0 is the preferred timing.
+        index: u8,
+    },
 }
 
 /// A display refresh rate expressed as an exact rational number (numerator/denominator in Hz).
@@ -525,7 +532,7 @@ impl VideoMode {
     ///
     /// Called automatically by [`vic_to_mode`][crate::cea861::vic_to_mode] and
     /// [`dmt_to_mode`][crate::cea861::dmt_to_mode]. Parsers decoding Detailed Timing
-    /// Descriptors should call `.with_source(ModeSource::DtdIndex(n))` so that the
+    /// Descriptors should call `.with_source(ModeSource::Dtd { block, index })` so that the
     /// descriptor's position survives into negotiated output.
     pub fn with_source(mut self, source: ModeSource) -> Self {
         self.source = Some(source);
